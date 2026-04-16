@@ -1,6 +1,6 @@
-# React Shadcn Starter
+# PWA Academic
 
-React + Vite + TypeScript template for building apps with shadcn/ui.
+Frontend project untuk PWA informasi akademik siswa dan wali siswa BIS, dibangun di atas React, Vite, TypeScript, dan shadcn/ui.
 
 ## Getting Started
 
@@ -10,6 +10,14 @@ cd my-project
 npm install
 npm run dev
 ```
+
+## Documentation
+
+- PRD: `docs/PRD.md`
+- Implementation plan: `docs/IMPLEMENTATION.md`
+- Progress plan: `docs/PROGRESS.md`
+
+Dokumen di atas menjadi acuan utama untuk scope produk, struktur aplikasi, dan rencana implementasi MVP.
 
 ## Getting Done
 
