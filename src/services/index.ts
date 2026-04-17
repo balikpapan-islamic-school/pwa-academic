@@ -10,6 +10,8 @@ function resolveAcademicService(): AcademicService {
         return {
             ...mockAcademicService,
             login: httpAcademicService.login,
+            getCurrentUser: httpAcademicService.getCurrentUser,
+            logout: httpAcademicService.logout,
         }
     }
 

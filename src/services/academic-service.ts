@@ -13,6 +13,8 @@ import {
 
 export interface AcademicService {
     login(identity: string, password: string): Promise<AuthUser>
+    getCurrentUser(): Promise<AuthUser>
+    logout(): Promise<void>
     getLinkedStudents(userId: string): Promise<StudentSummary[]>
     getDashboard(studentId: string): Promise<DashboardData>
     getSchedule(studentId: string): Promise<ScheduleItem[]>

@@ -4,6 +4,23 @@ type RequestOptions = {
     headers?: HeadersInit
 }
 
+type ApiErrorResponse = {
+    message?: string
+    errors?: Record<string, string[]>
+}
+
+export class ApiError extends Error {
+    status: number
+    errors?: Record<string, string[]>
+
+    constructor(status: number, message: string, errors?: Record<string, string[]>) {
+        super(message)
+        this.name = 'ApiError'
+        this.status = status
+        this.errors = errors
+    }
+}
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') ?? ''
 const ACCESS_TOKEN_KEY = 'pwa-academic-access-token'
 
@@ -26,6 +43,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     const response = await fetch(url, {
         method: options.method ?? 'GET',
         headers: {
+            Accept: 'application/json',
             'Content-Type': 'application/json',
             ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
             ...options.headers,
@@ -34,7 +52,19 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     })
 
     if (!response.ok) {
-        throw new Error(`API request failed with status ${response.status}`)
+        let errorPayload: ApiErrorResponse | null = null
+
+        try {
+            errorPayload = await response.json() as ApiErrorResponse
+        } catch {
+            errorPayload = null
+        }
+
+        throw new ApiError(
+            response.status,
+            errorPayload?.message ?? `API request failed with status ${response.status}`,
+            errorPayload?.errors
+        )
     }
 
     return response.json() as Promise<T>

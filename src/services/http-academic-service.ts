@@ -28,6 +28,11 @@ type LoginResponseData = {
     role?: string
 }
 
+type MeResponse = {
+    message?: string
+    data?: LoginUserPayload
+}
+
 function buildAvatarInitials(name: string) {
     return name
         .split(' ')
@@ -68,13 +73,25 @@ function mapLoginResponseToAuthUser(response: LoginResponse, username: string): 
     const fallbackEmail = role === 'siswa' ? 'siswa@bis.test' : 'wali@bis.test'
 
     return {
-        // Temporary mock-compatible ID so the rest of the app can keep using local dummy data
-        // while only login has been moved to the real API.
-        id: role === 'siswa' ? 'user-siswa-1' : 'user-wali-1',
+        id: typeof rawUser.id === 'string' ? rawUser.id : typeof rawUser.id === 'number' ? String(rawUser.id) : role === 'siswa' ? 'user-siswa-1' : 'user-wali-1',
         name: typeof rawUser.name === 'string' ? rawUser.name : typeof rawUser.full_name === 'string' ? rawUser.full_name : fallbackName,
         email: typeof rawUser.email === 'string' ? rawUser.email : fallbackEmail,
         role,
         avatarInitials: buildAvatarInitials(typeof rawUser.name === 'string' ? rawUser.name : fallbackName),
+    }
+}
+
+function mapMeResponseToAuthUser(response: MeResponse): AuthUser {
+    const rawUser = response.data ?? {}
+    const name = typeof rawUser.name === 'string' ? rawUser.name : typeof rawUser.full_name === 'string' ? rawUser.full_name : 'Pengguna BIS'
+    const role = normalizeRole(rawUser.role, typeof rawUser.name === 'string' ? rawUser.name : '')
+
+    return {
+        id: typeof rawUser.id === 'string' ? rawUser.id : typeof rawUser.id === 'number' ? String(rawUser.id) : role === 'siswa' ? 'user-siswa-1' : 'user-wali-1',
+        name,
+        email: typeof rawUser.email === 'string' ? rawUser.email : 'user@bis.test',
+        role,
+        avatarInitials: buildAvatarInitials(name),
     }
 }
 
@@ -86,6 +103,25 @@ export const httpAcademicService: AcademicService = {
         })
 
         return mapLoginResponseToAuthUser(response, identity)
+    },
+
+    async getCurrentUser() {
+        const response = await apiRequest<MeResponse>('/auth/me', {
+            headers: {
+                Accept: 'application/json',
+            },
+        })
+
+        return mapMeResponseToAuthUser(response)
+    },
+
+    async logout() {
+        await apiRequest('/auth/logout', {
+            method: 'POST',
+            headers: {
+                Accept: 'application/json',
+            },
+        })
     },
 
     getLinkedStudents(userId) {

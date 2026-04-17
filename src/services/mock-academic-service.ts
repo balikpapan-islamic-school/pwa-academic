@@ -28,6 +28,14 @@ export const mockAcademicService: AcademicService = {
         return wait(user, 450)
     },
 
+    async getCurrentUser() {
+        return wait(mockUsers.wali_siswa, 200)
+    },
+
+    async logout() {
+        return wait(undefined, 100)
+    },
+
     async getLinkedStudents(userId) {
         return wait(mockLinkedStudentsByUserId[userId] ?? [], 250)
     },

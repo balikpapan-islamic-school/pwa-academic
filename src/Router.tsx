@@ -1,6 +1,7 @@
-import { Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes } from 'react-router-dom'
 import { AppLayout } from './components/app-layout'
 import { ProtectedRoute } from './components/protected-route'
+import { useAuth } from './contexts/AuthContext'
 import Absensi from './pages/Absensi'
 import Dashboard from './pages/Dashboard'
 import Jadwal from './pages/Jadwal'
@@ -13,10 +14,24 @@ import PilihAnak from './pages/PilihAnak'
 import Profil from './pages/Profil'
 import Rapor from './pages/Rapor'
 
+function PublicLoginRoute() {
+    const { user, isReady } = useAuth()
+
+    if (!isReady) {
+        return null
+    }
+
+    if (user) {
+        return <Navigate to="/" replace />
+    }
+
+    return <Login />
+}
+
 export default function Router() {
     return (
         <Routes>
-            <Route path="/login" element={<Login />} />
+            <Route path="/login" element={<PublicLoginRoute />} />
 
             <Route element={<ProtectedRoute />}>
                 <Route element={<AppLayout />}>
