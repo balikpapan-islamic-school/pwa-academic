@@ -24,6 +24,15 @@ export type StudentSummary = {
     avatarInitials: string
 }
 
+export type StudentProfile = StudentSummary & {
+    birthplace?: string
+    birthDate?: string
+    gender?: string
+    religion?: string
+    statusActive?: boolean
+    addressLine?: string
+}
+
 export type ScheduleItem = {
     id: string
     day: string

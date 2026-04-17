@@ -5,12 +5,10 @@ import { AppLogo } from './app-logo'
 import { ModeToggle } from './mode-toggle'
 import { Button, buttonVariants } from './ui/button'
 import { cn } from '@/lib/utils'
-import { useStudent } from '@/contexts/StudentContext'
 import { useNotifications } from '@/contexts/NotificationsContext'
 import { useAuth } from '@/contexts/AuthContext'
 
 export function AppHeader() {
-    const { activeStudent } = useStudent()
     const { unreadCount } = useNotifications()
     const { logout } = useAuth()
 
@@ -77,33 +75,11 @@ export function AppHeader() {
                         <UserRound className="size-4" />
                         <span className="sr-only">Profil</span>
                     </NavLink>
-                    <Button variant="ghost" size="icon" className="hidden size-9 rounded-full md:inline-flex" onClick={logout}>
+                    <Button variant="ghost" size="icon" className="size-9 rounded-full" onClick={logout}>
                         <LogOut className="size-4" />
                         <span className="sr-only">Keluar</span>
                     </Button>
                 </nav>
-            </div>
-
-            <div className="border-t bg-muted/40">
-                <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 md:px-6">
-                    <div className="grid min-w-0 gap-1 md:grid-cols-[minmax(0,1fr)_auto] md:items-center md:gap-x-6">
-                        <div className="min-w-0">
-                            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Siswa Aktif</p>
-                            <p className="truncate text-sm font-semibold">
-                                {activeStudent ? `${activeStudent.name} - ${activeStudent.unit} ${activeStudent.className}` : 'Memuat data siswa...'}
-                            </p>
-                        </div>
-                        {activeStudent ? (
-                            <div className="hidden text-xs text-muted-foreground md:flex md:flex-wrap md:items-center md:gap-3">
-                                <span>Semester {activeStudent.semesterLabel}</span>
-                                <span>Wali kelas {activeStudent.homeroomTeacher}</span>
-                            </div>
-                        ) : null}
-                    </div>
-                    <Button asChild variant="secondary" size="sm" className="shrink-0 md:hidden">
-                        <Link to="/pilih-anak">Ganti</Link>
-                    </Button>
-                </div>
             </div>
         </header>
     )

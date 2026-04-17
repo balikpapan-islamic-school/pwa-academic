@@ -1,6 +1,6 @@
 import { AcademicService } from '@/services/academic-service'
 import { apiRequest, setAccessToken } from '@/services/api-client'
-import { AuthUser } from '@/types/academic'
+import { AuthUser, StudentProfile } from '@/types/academic'
 
 type LoginResponse = {
     token?: string
@@ -33,6 +33,29 @@ type MeResponse = {
     data?: LoginUserPayload
 }
 
+type StudentProfileResponse = {
+    message?: string
+    data?: {
+        id?: string
+        nipd?: string | null
+        nisn?: string | null
+        nama_lengkap?: string
+        nama_panggilan?: string
+        tempat_lahir?: string
+        tanggal_lahir?: string
+        jenis_kelamin?: string
+        agama?: string
+        status_aktif?: boolean
+        sekolah?: {
+            nama?: string
+            jenis?: string
+        }
+        alamat?: {
+            jalan?: string | null
+        }
+    }
+}
+
 function buildAvatarInitials(name: string) {
     return name
         .split(' ')
@@ -58,6 +81,10 @@ function normalizeRole(rawRole: unknown, username: string): AuthUser['role'] {
     return username.toLowerCase().includes('siswa') ? 'siswa' : 'wali_siswa'
 }
 
+function getMockCompatibleUserId(role: AuthUser['role']) {
+    return role === 'siswa' ? 'user-siswa-1' : 'user-wali-1'
+}
+
 function mapLoginResponseToAuthUser(response: LoginResponse, username: string): AuthUser {
     const token = response.token ?? response.access_token ?? response.data?.token ?? response.data?.access_token
 
@@ -73,7 +100,9 @@ function mapLoginResponseToAuthUser(response: LoginResponse, username: string): 
     const fallbackEmail = role === 'siswa' ? 'siswa@bis.test' : 'wali@bis.test'
 
     return {
-        id: typeof rawUser.id === 'string' ? rawUser.id : typeof rawUser.id === 'number' ? String(rawUser.id) : role === 'siswa' ? 'user-siswa-1' : 'user-wali-1',
+        // Temporary mock-compatible ID so student context and downstream pages keep working
+        // while linked-student and dashboard endpoints are still using local dummy data.
+        id: getMockCompatibleUserId(role),
         name: typeof rawUser.name === 'string' ? rawUser.name : typeof rawUser.full_name === 'string' ? rawUser.full_name : fallbackName,
         email: typeof rawUser.email === 'string' ? rawUser.email : fallbackEmail,
         role,
@@ -87,11 +116,35 @@ function mapMeResponseToAuthUser(response: MeResponse): AuthUser {
     const role = normalizeRole(rawUser.role, typeof rawUser.name === 'string' ? rawUser.name : '')
 
     return {
-        id: typeof rawUser.id === 'string' ? rawUser.id : typeof rawUser.id === 'number' ? String(rawUser.id) : role === 'siswa' ? 'user-siswa-1' : 'user-wali-1',
+        // Temporary mock-compatible ID so the rest of the app can continue using
+        // fallback mock services until profile/dashboard/student endpoints are real.
+        id: getMockCompatibleUserId(role),
         name,
         email: typeof rawUser.email === 'string' ? rawUser.email : 'user@bis.test',
         role,
         avatarInitials: buildAvatarInitials(name),
+    }
+}
+
+function mapStudentProfileResponse(response: StudentProfileResponse): StudentProfile {
+    const data = response.data ?? {}
+
+    return {
+        id: data.id ?? 'student-1',
+        name: data.nama_lengkap ?? 'Siswa BIS',
+        nickname: data.nama_panggilan ?? data.nama_lengkap ?? 'Siswa',
+        nis: data.nisn ?? data.nipd ?? '-',
+        unit: data.sekolah?.jenis ?? 'BIS',
+        className: '-',
+        semesterLabel: '-',
+        homeroomTeacher: '-',
+        avatarInitials: buildAvatarInitials(data.nama_lengkap ?? 'Siswa BIS'),
+        birthplace: data.tempat_lahir ?? undefined,
+        birthDate: data.tanggal_lahir ?? undefined,
+        gender: data.jenis_kelamin ?? undefined,
+        religion: data.agama ?? undefined,
+        statusActive: data.status_aktif ?? undefined,
+        addressLine: data.alamat?.jalan ?? undefined,
     }
 }
 
@@ -122,6 +175,16 @@ export const httpAcademicService: AcademicService = {
                 Accept: 'application/json',
             },
         })
+    },
+
+    async getStudentProfile() {
+        const response = await apiRequest<StudentProfileResponse>('/me', {
+            headers: {
+                Accept: 'application/json',
+            },
+        })
+
+        return mapStudentProfileResponse(response)
     },
 
     getLinkedStudents(userId) {

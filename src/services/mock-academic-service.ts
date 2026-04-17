@@ -36,6 +36,20 @@ export const mockAcademicService: AcademicService = {
         return wait(undefined, 100)
     },
 
+    async getStudentProfile() {
+        const student = mockLinkedStudentsByUserId['user-siswa-1'][0]
+
+        return wait({
+            ...student,
+            birthplace: 'Balikpapan',
+            birthDate: '2019-01-01',
+            gender: 'Laki-laki',
+            religion: 'Islam',
+            statusActive: true,
+            addressLine: 'Jl. Pandan Arum, Balikpapan',
+        }, 200)
+    },
+
     async getLinkedStudents(userId) {
         return wait(mockLinkedStudentsByUserId[userId] ?? [], 250)
     },

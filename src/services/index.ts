@@ -12,6 +12,7 @@ function resolveAcademicService(): AcademicService {
             login: httpAcademicService.login,
             getCurrentUser: httpAcademicService.getCurrentUser,
             logout: httpAcademicService.logout,
+            getStudentProfile: httpAcademicService.getStudentProfile,
         }
     }
 

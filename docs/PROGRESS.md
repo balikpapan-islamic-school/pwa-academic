@@ -205,6 +205,18 @@ Tahap ini akan memberi bentuk nyata pada produk sebelum kita masuk ke integrasi 
 
 ## Update Terbaru
 
+- Checklist implementasi API yang sedang dikerjakan:
+  - [x] `POST /auth/login`
+  - [x] `GET /auth/me`
+  - [x] `POST /auth/logout`
+  - [ ] `GET /me` untuk halaman profil siswa
+  - [ ] endpoint linked students / wali siswa
+  - [ ] endpoint dashboard akademik
+  - [ ] endpoint jadwal / KBM
+  - [ ] endpoint absensi
+  - [ ] endpoint nilai
+  - [ ] endpoint rapor
+  - [ ] endpoint notifikasi
 - Beranda sedang diarahkan ke pola `super app home`, bukan dashboard analitik.
 - Struktur home yang dipakai saat ini:
   - hero personal siswa aktif
@@ -216,4 +228,13 @@ Tahap ini akan memberi bentuk nyata pada produk sebelum kita masuk ke integrasi 
 - Notifikasi sekolah sudah diadaptasi ke komponen `Alert` ala shadcn.
 - Halaman `KBM` sudah dirombak ke pola kalender mingguan di atas dan timeline sesi di bawah.
 - Untuk mobile view, strip hari mingguan sudah dibuat horizontal scroll dan item aktif otomatis difokuskan ke tengah.
+- Fondasi service API sudah dipisahkan lewat facade `academicService`, sehingga page dan context tidak lagi bergantung langsung ke mock service.
+- Integrasi auth API sudah mulai berjalan dengan alur:
+  - `POST /auth/login`
+  - `GET /auth/me`
+  - `POST /auth/logout`
+- Login sekarang memakai `username` dan `password`, menyimpan bearer token, dan melakukan bootstrap session dari token yang tersimpan.
+- Route middleware sudah disesuaikan agar redirect ke `/login` dan alert session bekerja saat token tidak valid atau sesi berakhir.
+- Error login `422` sekarang sudah ditampilkan lebih spesifik di level field `username` dan `password`.
+- Data akademik selain auth saat ini masih menggunakan fallback mock sampai endpoint backend terkait tersedia.
 - Untuk sementara, pengerjaan dashboard dianggap cukup dan iterasi berikutnya dapat berpindah ke section lain bila dibutuhkan.

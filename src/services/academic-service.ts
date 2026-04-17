@@ -8,6 +8,7 @@ import {
     ReportDetail,
     ReportSummary,
     ScheduleItem,
+    StudentProfile,
     StudentSummary,
 } from '@/types/academic'
 
@@ -15,6 +16,7 @@ export interface AcademicService {
     login(identity: string, password: string): Promise<AuthUser>
     getCurrentUser(): Promise<AuthUser>
     logout(): Promise<void>
+    getStudentProfile(): Promise<StudentProfile>
     getLinkedStudents(userId: string): Promise<StudentSummary[]>
     getDashboard(studentId: string): Promise<DashboardData>
     getSchedule(studentId: string): Promise<ScheduleItem[]>
