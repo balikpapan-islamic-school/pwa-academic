@@ -1,6 +1,6 @@
 import { createContext, ReactNode, use, useEffect, useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
-import { getLinkedStudents } from '@/services/mock-api'
+import { academicService } from '@/services'
 import { StudentSummary } from '@/types/academic'
 
 type StudentContextType = {
@@ -31,7 +31,7 @@ export function StudentProvider({ children }: { children: ReactNode }) {
 
         setIsLoading(true)
 
-        getLinkedStudents(user.id).then((students) => {
+        academicService.getLinkedStudents(user.id).then((students) => {
             if (cancelled) {
                 return
             }

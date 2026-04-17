@@ -1,6 +1,6 @@
 import { createContext, ReactNode, use, useEffect, useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
-import { getNotifications } from '@/services/mock-api'
+import { academicService } from '@/services'
 import { NotificationItem } from '@/types/academic'
 
 type NotificationsContextType = {
@@ -27,7 +27,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
 
         setIsLoading(true)
 
-        getNotifications(user.id).then((result) => {
+        academicService.getNotifications(user.id).then((result) => {
             if (cancelled) {
                 return
             }

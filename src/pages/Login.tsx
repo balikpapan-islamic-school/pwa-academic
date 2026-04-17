@@ -43,8 +43,8 @@ export default function Login() {
                 <CardContent className="space-y-4">
                     <form className="space-y-4" onSubmit={handleSubmit}>
                         <div className="space-y-2">
-                            <label className="text-sm font-medium" htmlFor="email">Email</label>
-                            <Input id="email" value={identity} onChange={(event) => setIdentity(event.target.value)} placeholder="nama@bis.sch.id" />
+                            <label className="text-sm font-medium" htmlFor="email">Username</label>
+                            <Input id="email" value={identity} onChange={(event) => setIdentity(event.target.value)} placeholder="username" />
                         </div>
                         <div className="space-y-2">
                             <label className="text-sm font-medium" htmlFor="password">Kata sandi</label>

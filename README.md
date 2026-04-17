@@ -19,6 +19,16 @@ npm run dev
 
 Dokumen di atas menjadi acuan utama untuk scope produk, struktur aplikasi, dan rencana implementasi MVP.
 
+## Environment
+
+- `VITE_DATA_SOURCE=mock` untuk menggunakan data dummy lokal
+- `VITE_DATA_SOURCE=api` untuk menggunakan service HTTP
+- `VITE_API_BASE_URL=https://domain-api.example.com` untuk base URL backend saat mode `api`
+
+Untuk API lokal saat ini:
+- `VITE_DATA_SOURCE=api`
+- `VITE_API_BASE_URL=http://bis-academic.test/api/v1`
+
 ## Getting Done
 
 - [x] Single page app with navigation and responsif layout

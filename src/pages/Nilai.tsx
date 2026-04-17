@@ -7,7 +7,7 @@ import { PageSkeleton } from '@/components/shared/page-skeleton'
 import { SectionHeading } from '@/components/shared/section-heading'
 import { Button } from '@/components/ui/button'
 import { useStudent } from '@/contexts/StudentContext'
-import { getGrades } from '@/services/mock-api'
+import { academicService } from '@/services'
 import { GradeItem } from '@/types/academic'
 
 export default function Nilai() {
@@ -26,7 +26,7 @@ export default function Nilai() {
         }
 
         setIsLoading(true)
-        getGrades(activeStudent.id).then((result) => {
+        academicService.getGrades(activeStudent.id).then((result) => {
             if (!cancelled) {
                 setItems(result)
                 setIsLoading(false)

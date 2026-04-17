@@ -415,6 +415,19 @@ Minimum payload dashboard:
 - endpoint daftar notifikasi
 - endpoint tandai dibaca
 
+### Persiapan Integrasi API
+
+- frontend menggunakan facade `academicService` sebagai satu pintu akses data
+- consumer di page dan context tidak boleh mengimpor mock service secara langsung
+- source data ditentukan melalui environment variable `VITE_DATA_SOURCE`
+- nilai `mock` menggunakan mock service lokal untuk development UI
+- nilai `api` menggunakan HTTP service dengan base URL dari `VITE_API_BASE_URL`
+
+Contoh environment:
+- `VITE_DATA_SOURCE=mock`
+- `VITE_DATA_SOURCE=api`
+- `VITE_API_BASE_URL=https://domain-api.example.com`
+
 ---
 
 ## 12. Skenario Loading, Empty, dan Error

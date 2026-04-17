@@ -9,7 +9,7 @@ import { StatusBadge } from '@/components/shared/status-badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useStudent } from '@/contexts/StudentContext'
-import { getReportDetail, getReportSummaries } from '@/services/mock-api'
+import { academicService } from '@/services'
 import { ReportDetail, ReportSummary } from '@/types/academic'
 
 export default function Rapor() {
@@ -31,7 +31,7 @@ export default function Rapor() {
 
         setIsLoading(true)
 
-        getReportSummaries(activeStudent.id).then((result) => {
+        academicService.getReportSummaries(activeStudent.id).then((result) => {
             if (cancelled) {
                 return
             }
@@ -46,7 +46,7 @@ export default function Rapor() {
                 return
             }
 
-            getReportDetail(nextId).then((reportDetail) => {
+            academicService.getReportDetail(nextId).then((reportDetail) => {
                 if (!cancelled) {
                     setDetail(reportDetail)
                     setIsLoading(false)
@@ -66,7 +66,7 @@ export default function Rapor() {
             return
         }
 
-        getReportDetail(selectedId).then((result) => {
+        academicService.getReportDetail(selectedId).then((result) => {
             if (!cancelled) {
                 setDetail(result)
             }

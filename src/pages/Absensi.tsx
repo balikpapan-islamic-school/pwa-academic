@@ -9,7 +9,7 @@ import { StatusBadge } from '@/components/shared/status-badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { useStudent } from '@/contexts/StudentContext'
-import { getAttendance, getAttendanceSummary } from '@/services/mock-api'
+import { academicService } from '@/services'
 import { AttendanceItem, AttendanceSummary } from '@/types/academic'
 
 type StatusFilter = 'Semua' | AttendanceItem['status']
@@ -34,8 +34,8 @@ export default function Absensi() {
         setIsLoading(true)
 
         Promise.all([
-            getAttendance(activeStudent.id),
-            getAttendanceSummary(activeStudent.id),
+            academicService.getAttendance(activeStudent.id),
+            academicService.getAttendanceSummary(activeStudent.id),
         ]).then(([attendance, attendanceSummary]) => {
             if (!cancelled) {
                 setItems(attendance)

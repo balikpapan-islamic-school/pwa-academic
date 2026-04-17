@@ -1,5 +1,6 @@
 import { createContext, ReactNode, use, useEffect, useState } from 'react'
-import { loginWithMock } from '@/services/mock-api'
+import { academicService } from '@/services'
+import { clearAccessToken } from '@/services/api-client'
 import { AuthUser } from '@/types/academic'
 
 type AuthContextType = {
@@ -28,7 +29,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }, [])
 
     async function login(identity: string, password: string) {
-        const nextUser = await loginWithMock(identity, password)
+        const nextUser = await academicService.login(identity, password)
         window.localStorage.setItem(STORAGE_KEY, JSON.stringify(nextUser))
         setUser(nextUser)
     }
@@ -36,6 +37,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     function logout() {
         window.localStorage.removeItem(STORAGE_KEY)
         window.localStorage.removeItem('pwa-academic-active-student')
+        clearAccessToken()
         setUser(null)
     }
 

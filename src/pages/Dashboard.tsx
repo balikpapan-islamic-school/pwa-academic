@@ -9,7 +9,7 @@ import { Alert, AlertAction, AlertDescription, AlertTitle } from '@/components/u
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { useStudent } from '@/contexts/StudentContext'
-import { getDashboard } from '@/services/mock-api'
+import { academicService } from '@/services'
 import { DashboardData } from '@/types/academic'
 
 export default function Dashboard() {
@@ -28,7 +28,7 @@ export default function Dashboard() {
 
         setIsLoading(true)
 
-        getDashboard(activeStudent.id).then((result) => {
+        academicService.getDashboard(activeStudent.id).then((result) => {
             if (!cancelled) {
                 setData(result)
                 setIsLoading(false)

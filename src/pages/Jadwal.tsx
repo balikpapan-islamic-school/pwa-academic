@@ -7,7 +7,7 @@ import { SectionHeading } from '@/components/shared/section-heading'
 import { StatusBadge } from '@/components/shared/status-badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { useStudent } from '@/contexts/StudentContext'
-import { getSchedule } from '@/services/mock-api'
+import { academicService } from '@/services'
 import { ScheduleItem } from '@/types/academic'
 
 const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember']
@@ -51,7 +51,7 @@ export default function Jadwal() {
 
         setIsLoading(true)
 
-        getSchedule(activeStudent.id).then((result) => {
+        academicService.getSchedule(activeStudent.id).then((result) => {
             if (!cancelled) {
                 setItems(result)
                 setIsLoading(false)
