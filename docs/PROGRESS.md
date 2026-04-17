@@ -19,11 +19,11 @@ Tujuan:
 - mengubah repo dari template starter menjadi kerangka aplikasi akademik
 
 Pekerjaan:
-- [ ] rapikan route utama aplikasi
-- [ ] hapus route placeholder yang tidak relevan
-- [ ] buat struktur navigasi utama produk
-- [ ] bangun shell aplikasi mobile-first
-- [ ] siapkan layout dasar untuk halaman protected
+- [x] rapikan route utama aplikasi
+- [x] hapus route placeholder yang tidak relevan
+- [x] buat struktur navigasi utama produk
+- [x] bangun shell aplikasi mobile-first
+- [x] siapkan layout dasar untuk halaman protected
 
 Output:
 - route MVP sudah tersedia
@@ -38,15 +38,15 @@ Tujuan:
 - menghadirkan seluruh halaman MVP dalam bentuk visual statis
 
 Pekerjaan:
-- [ ] buat halaman `Login`
-- [ ] buat halaman `Beranda`
-- [ ] buat halaman `Jadwal`
-- [ ] buat halaman `Absensi`
-- [ ] buat halaman `Nilai`
-- [ ] buat halaman `Rapor`
-- [ ] buat halaman `Profil`
-- [ ] buat halaman `Pilih Anak`
-- [ ] buat halaman `Notifikasi`
+- [x] buat halaman `Login`
+- [x] buat halaman `Beranda`
+- [x] buat halaman `Jadwal`
+- [x] buat halaman `Absensi`
+- [x] buat halaman `Nilai`
+- [x] buat halaman `Rapor`
+- [x] buat halaman `Profil`
+- [x] buat halaman `Pilih Anak`
+- [x] buat halaman `Notifikasi`
 
 Output:
 - semua halaman utama sudah bisa dinavigasi
@@ -61,13 +61,13 @@ Tujuan:
 - membuat UI konsisten dan tidak terasa seperti template generik
 
 Pekerjaan:
-- [ ] buat komponen ringkasan dashboard
-- [ ] buat komponen kartu jadwal
-- [ ] buat badge status absensi
-- [ ] buat komponen nilai dan rapor
-- [ ] buat komponen empty state
-- [ ] buat komponen skeleton loading
-- [ ] rapikan spacing, typography, dan hierarchy visual
+- [x] buat komponen ringkasan dashboard
+- [x] buat komponen kartu jadwal
+- [x] buat badge status absensi
+- [x] buat komponen nilai dan rapor
+- [x] buat komponen empty state
+- [x] buat komponen skeleton loading
+- [x] rapikan spacing, typography, dan hierarchy visual
 
 Output:
 - halaman menggunakan komponen domain yang konsisten
@@ -81,14 +81,14 @@ Tujuan:
 - menguji kecocokan UI dengan data akademik nyata sebelum integrasi API
 
 Pekerjaan:
-- [ ] buat mock data untuk user login
-- [ ] buat mock data siswa aktif dan daftar anak
-- [ ] buat mock data dashboard
-- [ ] buat mock data jadwal
-- [ ] buat mock data absensi
-- [ ] buat mock data nilai
-- [ ] buat mock data rapor
-- [ ] buat mock data notifikasi
+- [x] buat mock data untuk user login
+- [x] buat mock data siswa aktif dan daftar anak
+- [x] buat mock data dashboard
+- [x] buat mock data jadwal
+- [x] buat mock data absensi
+- [x] buat mock data nilai
+- [x] buat mock data rapor
+- [x] buat mock data notifikasi
 
 Output:
 - semua halaman menampilkan data realistis
@@ -102,12 +102,12 @@ Tujuan:
 - menyiapkan fondasi state agar mudah disambungkan ke backend
 
 Pekerjaan:
-- [ ] siapkan auth context mock
-- [ ] siapkan active student context
-- [ ] siapkan linked students state untuk wali siswa
-- [ ] siapkan semester selection state bila diperlukan
-- [ ] siapkan loading, empty, dan error state per halaman
-- [ ] uji flow siswa dan wali siswa di mobile
+- [x] siapkan auth context mock
+- [x] siapkan active student context
+- [x] siapkan linked students state untuk wali siswa
+- [x] siapkan semester selection state bila diperlukan
+- [x] siapkan loading, empty, dan error state per halaman
+- [x] uji flow siswa dan wali siswa di mobile
 
 Output:
 - alur UI stabil
@@ -121,13 +121,13 @@ Tujuan:
 - memastikan frontend tahu bentuk data yang dibutuhkan sebelum API final
 
 Pekerjaan:
-- [ ] definisikan type untuk user dan role
-- [ ] definisikan type untuk student context
-- [ ] definisikan type untuk jadwal
-- [ ] definisikan type untuk absensi
-- [ ] definisikan type untuk nilai
-- [ ] definisikan type untuk rapor
-- [ ] definisikan type untuk notifikasi
+- [x] definisikan type untuk user dan role
+- [x] definisikan type untuk student context
+- [x] definisikan type untuk jadwal
+- [x] definisikan type untuk absensi
+- [x] definisikan type untuk nilai
+- [x] definisikan type untuk rapor
+- [x] definisikan type untuk notifikasi
 
 Output:
 - type frontend lebih stabil
@@ -141,15 +141,15 @@ Tujuan:
 - mengganti mock data dengan data nyata dari backend
 
 Pekerjaan:
-- [ ] integrasi auth
-- [ ] integrasi current user
-- [ ] integrasi active student atau linked students
-- [ ] integrasi dashboard
-- [ ] integrasi jadwal
-- [ ] integrasi absensi
-- [ ] integrasi nilai
-- [ ] integrasi rapor
-- [ ] integrasi notifikasi
+- [x] integrasi auth
+- [x] integrasi current user
+- [x] integrasi active student atau linked students
+- [x] integrasi dashboard
+- [x] integrasi jadwal
+- [x] integrasi absensi
+- [x] integrasi nilai
+- [x] integrasi rapor
+- [x] integrasi notifikasi
 
 Output:
 - frontend berjalan dengan data nyata
@@ -163,12 +163,12 @@ Tujuan:
 - memastikan aplikasi siap dipakai dan stabil di device utama
 
 Pekerjaan:
-- [ ] cek responsif mobile dan desktop
-- [ ] cek konsistensi navigasi
-- [ ] cek akses berdasarkan role
-- [ ] cek empty, loading, dan error state
-- [ ] cek performa dasar PWA
-- [ ] rapikan detail visual akhir
+- [x] cek responsif mobile dan desktop
+- [x] cek konsistensi navigasi
+- [x] cek akses berdasarkan role
+- [x] cek empty, loading, dan error state
+- [x] cek performa dasar PWA
+- [x] rapikan detail visual akhir
 
 Output:
 - UI siap untuk review final

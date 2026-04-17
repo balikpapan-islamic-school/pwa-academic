@@ -11,14 +11,14 @@ type AppConfigType = {
 }
 
 export const appConfig: AppConfigType = {
-    name: import.meta.env.VITE_APP_NAME ?? "Sample App",
+    name: import.meta.env.VITE_APP_NAME ?? 'PWA Academic',
     github: {
-        title: "React Shadcn Starter",
-        url: "https://github.com/hayyi2/react-shadcn-starter",
+        title: 'PWA Academic Repository',
+        url: 'https://github.com/balikpapan-islamic-school/pwa-academic',
     },
     author: {
-        name: "hayyi",
-        url: "https://github.com/hayyi2/",
+        name: 'Balikpapan Islamic School',
+        url: 'https://github.com/balikpapan-islamic-school',
     }
 }
 

@@ -1,14 +1,16 @@
 import {
-    CircleAlert,
-    Files,
+    Bell,
+    BookOpen,
+    ClipboardCheck,
     Gauge,
-    LucideIcon
+    LucideIcon,
+    NotebookText,
+    UserRound,
 } from 'lucide-react'
 
 type MenuItemType = {
     title: string
     url: string
-    external?: string
     icon?: LucideIcon
     items?: MenuItemType[]
 }
@@ -16,28 +18,41 @@ type MenuType = MenuItemType[]
 
 export const mainMenu: MenuType = [
     {
-        title: 'Dashboard',
+        title: 'Beranda',
         url: '/',
         icon: Gauge
     },
     {
-        title: 'Pages',
-        url: '/pages',
-        icon: Files,
-        items: [
-            {
-                title: 'Sample Page',
-                url: '/pages/sample',
-            },
-            {
-                title: 'Coming Soon',
-                url: '/pages/feature',
-            },
-        ]
+        title: 'Jadwal',
+        url: '/jadwal',
+        icon: BookOpen,
     },
     {
-        title: 'Error',
-        url: '/404',
-        icon: CircleAlert,
+        title: 'Absensi',
+        url: '/absensi',
+        icon: ClipboardCheck,
+    },
+    {
+        title: 'Nilai',
+        url: '/nilai',
+        icon: NotebookText,
+    },
+    {
+        title: 'Rapor',
+        url: '/rapor',
+        icon: Bell,
+    },
+]
+
+export const secondaryMenu: MenuType = [
+    {
+        title: 'Notifikasi',
+        url: '/notifikasi',
+        icon: Bell,
+    },
+    {
+        title: 'Profil',
+        url: '/profil',
+        icon: UserRound,
     },
 ]

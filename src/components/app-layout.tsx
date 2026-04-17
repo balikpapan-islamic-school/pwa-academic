@@ -1,17 +1,17 @@
 import { Outlet } from 'react-router'
 import { AppHeader } from './app-header'
-import { AppFooter } from './app-footer'
+import { AppBottomNav } from './app-bottom-nav'
 
 export function AppLayout() {
     return (
-        <div className="min-h-screen flex flex-col w-full ~bg-muted/50">
+        <div className="min-h-screen bg-muted/30">
             <AppHeader />
-            <div className="w-full max-w-7xl mx-auto px-4 md:px-8 flex flex-grow flex-col">
-                <div className='flex flex-grow flex-col'>
+            <main className="mx-auto flex min-h-[calc(100vh-8rem)] w-full max-w-5xl flex-1 flex-col px-4 pb-24 pt-4 md:px-6 md:pb-10 md:pt-6">
+                <div className="flex flex-1 flex-col">
                     <Outlet />
                 </div>
-                <AppFooter />
-            </div>
+            </main>
+            <AppBottomNav />
         </div>
     )
 }
