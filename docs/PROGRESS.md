@@ -214,4 +214,6 @@ Tahap ini akan memberi bentuk nyata pada produk sebelum kita masuk ke integrasi 
   - berita terbaru
 - Shortcut menu sudah dipoles sebagai entry point utama home.
 - Notifikasi sekolah sudah diadaptasi ke komponen `Alert` ala shadcn.
+- Halaman `KBM` sudah dirombak ke pola kalender mingguan di atas dan timeline sesi di bawah.
+- Untuk mobile view, strip hari mingguan sudah dibuat horizontal scroll dan item aktif otomatis difokuskan ke tengah.
 - Untuk sementara, pengerjaan dashboard dianggap cukup dan iterasi berikutnya dapat berpindah ke section lain bila dibutuhkan.
