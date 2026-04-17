@@ -11,9 +11,9 @@ type AppConfigType = {
 }
 
 export const appConfig: AppConfigType = {
-    name: import.meta.env.VITE_APP_NAME ?? 'PWA Academic',
+    name: import.meta.env.VITE_APP_NAME ?? 'BIS - Student',
     github: {
-        title: 'PWA Academic Repository',
+        title: 'PWA - ACADEMIC',
         url: 'https://github.com/balikpapan-islamic-school/pwa-academic',
     },
     author: {

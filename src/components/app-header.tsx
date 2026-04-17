@@ -2,6 +2,7 @@ import { Link, NavLink } from 'react-router-dom'
 import { Bell, ChevronRight, LogOut, UserRound } from 'lucide-react'
 import { mainMenu } from '@/config/menu'
 import { AppLogo } from './app-logo'
+import { ModeToggle } from './mode-toggle'
 import { Button, buttonVariants } from './ui/button'
 import { cn } from '@/lib/utils'
 import { useStudent } from '@/contexts/StudentContext'
@@ -20,10 +21,6 @@ export function AppHeader() {
                     <Link to="/" className="shrink-0">
                         <AppLogo />
                     </Link>
-                    <div className="hidden lg:block">
-                        <p className="text-sm font-medium">Portal Akademik</p>
-                        <p className="text-xs text-muted-foreground">Informasi belajar siswa dan wali siswa</p>
-                    </div>
                 </div>
 
                 <nav className="hidden flex-1 items-center gap-1 md:flex">
@@ -52,6 +49,9 @@ export function AppHeader() {
                         Ganti Anak
                         <ChevronRight className="size-4" />
                     </NavLink>
+                    <div className="shrink-0">
+                        <ModeToggle />
+                    </div>
                     <NavLink
                         to="/notifikasi"
                         className={({ isActive }) => cn(

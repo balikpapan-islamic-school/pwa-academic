@@ -2,7 +2,7 @@ import { FormEvent, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AppLogo } from '@/components/app-logo'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { useAuth } from '@/contexts/AuthContext'
 
@@ -37,14 +37,13 @@ export default function Login() {
                         <AppLogo />
                     </div>
                     <div className="space-y-1">
-                        <CardTitle>Masuk ke PWA Academic</CardTitle>
-                        <CardDescription>Halaman login awal untuk role siswa dan wali siswa.</CardDescription>
+                        <CardDescription>Halaman login awal untuk siswa dan wali siswa.</CardDescription>
                     </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <form className="space-y-4" onSubmit={handleSubmit}>
                         <div className="space-y-2">
-                            <label className="text-sm font-medium" htmlFor="email">Email atau username</label>
+                            <label className="text-sm font-medium" htmlFor="email">Email</label>
                             <Input id="email" value={identity} onChange={(event) => setIdentity(event.target.value)} placeholder="nama@bis.sch.id" />
                         </div>
                         <div className="space-y-2">
