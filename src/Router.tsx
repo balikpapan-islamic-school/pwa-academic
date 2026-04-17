@@ -8,6 +8,7 @@ import Login from './pages/Login'
 import Nilai from './pages/Nilai'
 import NotMatch from './pages/NotMatch'
 import Notifikasi from './pages/Notifikasi'
+import Pembayaran from './pages/Pembayaran'
 import PilihAnak from './pages/PilihAnak'
 import Profil from './pages/Profil'
 import Rapor from './pages/Rapor'
@@ -23,6 +24,7 @@ export default function Router() {
                     <Route path="/jadwal" element={<Jadwal />} />
                     <Route path="/absensi" element={<Absensi />} />
                     <Route path="/nilai" element={<Nilai />} />
+                    <Route path="/pembayaran" element={<Pembayaran />} />
                     <Route path="/rapor" element={<Rapor />} />
                     <Route path="/profil" element={<Profil />} />
                     <Route path="/pilih-anak" element={<PilihAnak />} />

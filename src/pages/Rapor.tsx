@@ -91,9 +91,11 @@ export default function Rapor() {
             </PageHeader>
 
             {summaries.length > 0 ? (
-                <>
-                    <SectionHeading title="Daftar Rapor" description="Pilih semester untuk melihat ringkasan dan detail rapor." />
-                    <ReportList items={summaries} onSelect={setSelectedId} />
+                <div className="grid gap-6 xl:grid-cols-[360px_minmax(0,1fr)] xl:items-start">
+                    <div className="space-y-4 xl:sticky xl:top-28">
+                        <SectionHeading title="Daftar Rapor" description="Pilih semester untuk melihat ringkasan dan detail rapor." />
+                        <ReportList items={summaries} onSelect={setSelectedId} />
+                    </div>
 
                     {detail && selectedSummary ? (
                         <Card>
@@ -132,7 +134,7 @@ export default function Rapor() {
                             </CardContent>
                         </Card>
                     ) : null}
-                </>
+                </div>
             ) : (
                 <EmptyState title="Belum ada rapor" description="Rapor akan muncul ketika sudah dipublikasikan dari sistem akademik utama." icon={FileSearch} />
             )}

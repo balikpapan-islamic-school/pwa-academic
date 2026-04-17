@@ -101,6 +101,31 @@ export type NotificationItem = {
     read: boolean
 }
 
+export type SchoolAlert = {
+    id: string
+    title: string
+    message: string
+    tone: 'info' | 'warning' | 'success'
+    actionLabel?: string
+    actionHref?: string
+}
+
+export type AgendaItem = {
+    id: string
+    date: string
+    title: string
+    scope: string
+    location?: string
+}
+
+export type NewsItem = {
+    id: string
+    title: string
+    summary: string
+    date: string
+    category: string
+}
+
 export type DashboardData = {
     student: StudentSummary
     todaySchedule: ScheduleItem[]
@@ -108,4 +133,7 @@ export type DashboardData = {
     latestAttendance: AttendanceItem[]
     gradeHighlights: GradeItem[]
     latestReport: ReportSummary
+    schoolAlert: SchoolAlert | null
+    agendas: AgendaItem[]
+    news: NewsItem[]
 }

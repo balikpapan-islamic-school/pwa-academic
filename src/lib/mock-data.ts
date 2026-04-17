@@ -1,13 +1,16 @@
 import {
+    AgendaItem,
     AttendanceItem,
     AttendanceSummary,
     AuthUser,
     DashboardData,
     GradeItem,
+    NewsItem,
     NotificationItem,
     ReportDetail,
     ReportSummary,
     ScheduleItem,
+    SchoolAlert,
     StudentSummary,
 } from '@/types/academic'
 
@@ -240,6 +243,51 @@ export const mockNotificationsByUserId: Record<string, NotificationItem[]> = {
     ],
 }
 
+export const mockSchoolAlertByStudentId: Record<string, SchoolAlert> = {
+    'student-1': {
+        id: 'alert-1',
+        title: 'Pengumuman UTS',
+        message: 'UTS dimulai Senin depan. Mohon siswa hadir 15 menit lebih awal dan membawa perlengkapan belajar lengkap.',
+        tone: 'warning',
+        actionLabel: 'Lihat KBM',
+        actionHref: '/jadwal',
+    },
+    'student-2': {
+        id: 'alert-2',
+        title: 'Rapor Sedang Disiapkan',
+        message: 'Wali siswa dapat memantau status finalisasi rapor semester genap melalui menu rapor mulai pekan ini.',
+        tone: 'info',
+        actionLabel: 'Buka Rapor',
+        actionHref: '/rapor',
+    },
+}
+
+export const mockAgendaByStudentId: Record<string, AgendaItem[]> = {
+    'student-1': [
+        { id: 'agenda-1', date: '21 Apr 2026', title: 'Simulasi UTS Kelas 6', scope: 'SDIT BIS', location: 'Gedung A' },
+        { id: 'agenda-2', date: '24 Apr 2026', title: 'Tahfidz Akbar Yayasan', scope: 'Yayasan BIS', location: 'Masjid Sekolah' },
+        { id: 'agenda-3', date: '28 Apr 2026', title: 'Pertemuan Wali Murid', scope: 'SDIT', location: 'Aula Utama' },
+    ],
+    'student-2': [
+        { id: 'agenda-4', date: '22 Apr 2026', title: 'Tryout Matematika SMPIT', scope: 'SMPIT', location: 'Ruang 8B' },
+        { id: 'agenda-5', date: '25 Apr 2026', title: 'Seminar Karakter Remaja', scope: 'Yayasan BIS', location: 'Aula Utama' },
+        { id: 'agenda-6', date: '29 Apr 2026', title: 'Class Meeting Persiapan Ujian', scope: 'SMPIT', location: 'Lapangan' },
+    ],
+}
+
+export const mockNewsByStudentId: Record<string, NewsItem[]> = {
+    'student-1': [
+        { id: 'news-1', title: 'Program Literasi Pagi SDIT Dimulai', summary: 'Program membaca 15 menit sebelum pelajaran pertama dimulai untuk semua kelas SDIT.', date: '17 Apr 2026', category: 'Sekolah' },
+        { id: 'news-2', title: 'Tim Olimpiade Sains BIS Raih Juara Kota', summary: 'Siswa BIS berhasil membawa pulang dua medali pada kompetisi sains tingkat kota.', date: '15 Apr 2026', category: 'Prestasi' },
+        { id: 'news-3', title: 'Pembaruan Jadwal Ekstrakurikuler', summary: 'Beberapa kegiatan ekstrakurikuler mengalami penyesuaian jadwal efektif pekan ini.', date: '12 Apr 2026', category: 'Kegiatan' },
+    ],
+    'student-2': [
+        { id: 'news-4', title: 'Workshop Public Speaking untuk SMPIT', summary: 'Siswa SMPIT akan mengikuti sesi penguatan komunikasi dan presentasi.', date: '16 Apr 2026', category: 'SMPIT' },
+        { id: 'news-5', title: 'Pembinaan Karakter Pekanan Digelar', summary: 'Kegiatan pembinaan karakter setiap Jumat pagi kembali dilaksanakan rutin.', date: '13 Apr 2026', category: 'Karakter' },
+        { id: 'news-6', title: 'Lomba Karya Tulis Yayasan Dibuka', summary: 'Pendaftaran lomba karya tulis internal dibuka untuk seluruh unit sekolah.', date: '10 Apr 2026', category: 'Yayasan' },
+    ],
+}
+
 export const mockDashboardByStudentId: Record<string, DashboardData> = {
     'student-1': {
         student: mockStudents[0],
@@ -248,6 +296,9 @@ export const mockDashboardByStudentId: Record<string, DashboardData> = {
         latestAttendance: mockAttendanceByStudentId['student-1'].slice(0, 3),
         gradeHighlights: mockGradesByStudentId['student-1'].slice(0, 3),
         latestReport: mockReportSummariesByStudentId['student-1'][0],
+        schoolAlert: mockSchoolAlertByStudentId['student-1'],
+        agendas: mockAgendaByStudentId['student-1'],
+        news: mockNewsByStudentId['student-1'],
     },
     'student-2': {
         student: mockStudents[1],
@@ -256,5 +307,8 @@ export const mockDashboardByStudentId: Record<string, DashboardData> = {
         latestAttendance: mockAttendanceByStudentId['student-2'].slice(0, 3),
         gradeHighlights: mockGradesByStudentId['student-2'].slice(0, 2),
         latestReport: mockReportSummariesByStudentId['student-2'][0],
+        schoolAlert: mockSchoolAlertByStudentId['student-2'],
+        agendas: mockAgendaByStudentId['student-2'],
+        news: mockNewsByStudentId['student-2'],
     },
 }

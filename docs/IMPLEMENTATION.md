@@ -201,13 +201,22 @@ Komponen inti:
 ### 7.3 Jadwal Page
 
 Tanggung jawab halaman:
-- menampilkan jadwal belajar siswa
+- menampilkan KBM siswa dalam dua mode tampilan utama: `kalender` dan `timeline`
 
 Komponen inti:
-- `ScheduleDaySwitcher`
-- `ScheduleList`
-- `ScheduleCard`
+- `ScheduleModeSwitcher`
+- `ScheduleCalendarView`
+- `ScheduleTimelineView`
+- `ScheduleDateSummary`
 - `ScheduleEmptyState`
+
+Catatan implementasi terbaru:
+- halaman `Jadwal` diposisikan ulang sebagai halaman `KBM`
+- default mode adalah `timeline`
+- user dapat berpindah antara mode `kalender` dan `timeline`
+- kedua mode berbagi state `selectedDate` / hari aktif yang sama
+- mode kalender berfungsi sebagai overview tanggal yang memiliki sesi KBM
+- mode timeline berfungsi sebagai detail urutan sesi pada hari yang dipilih
 
 ### 7.4 Absensi Page
 

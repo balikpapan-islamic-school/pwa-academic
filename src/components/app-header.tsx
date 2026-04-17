@@ -1,5 +1,6 @@
 import { Link, NavLink } from 'react-router-dom'
 import { Bell, ChevronRight, LogOut, UserRound } from 'lucide-react'
+import { mainMenu } from '@/config/menu'
 import { AppLogo } from './app-logo'
 import { Button, buttonVariants } from './ui/button'
 import { cn } from '@/lib/utils'
@@ -14,16 +15,31 @@ export function AppHeader() {
 
     return (
         <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-            <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-4">
+            <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-6 px-4 md:px-6">
                 <div className="flex min-w-0 items-center gap-3">
                     <Link to="/" className="shrink-0">
                         <AppLogo />
                     </Link>
-                    <div className="hidden md:block">
+                    <div className="hidden lg:block">
                         <p className="text-sm font-medium">Portal Akademik</p>
                         <p className="text-xs text-muted-foreground">Informasi belajar siswa dan wali siswa</p>
                     </div>
                 </div>
+
+                <nav className="hidden flex-1 items-center gap-1 md:flex">
+                    {mainMenu.map((item) => (
+                        <NavLink
+                            key={item.url}
+                            to={item.url}
+                            className={({ isActive }) => cn(
+                                'inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-colors',
+                                isActive ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                            )}>
+                            {item.icon ? <item.icon className="size-4" /> : null}
+                            <span>{item.title}</span>
+                        </NavLink>
+                    ))}
+                </nav>
 
                 <nav className="flex items-center gap-2">
                     <NavLink
@@ -69,12 +85,20 @@ export function AppHeader() {
             </div>
 
             <div className="border-t bg-muted/40">
-                <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3">
-                    <div className="min-w-0">
-                        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Siswa Aktif</p>
-                        <p className="truncate text-sm font-semibold">
-                            {activeStudent ? `${activeStudent.name} - ${activeStudent.unit} ${activeStudent.className}` : 'Memuat data siswa...'}
-                        </p>
+                <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 md:px-6">
+                    <div className="grid min-w-0 gap-1 md:grid-cols-[minmax(0,1fr)_auto] md:items-center md:gap-x-6">
+                        <div className="min-w-0">
+                            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Siswa Aktif</p>
+                            <p className="truncate text-sm font-semibold">
+                                {activeStudent ? `${activeStudent.name} - ${activeStudent.unit} ${activeStudent.className}` : 'Memuat data siswa...'}
+                            </p>
+                        </div>
+                        {activeStudent ? (
+                            <div className="hidden text-xs text-muted-foreground md:flex md:flex-wrap md:items-center md:gap-3">
+                                <span>Semester {activeStudent.semesterLabel}</span>
+                                <span>Wali kelas {activeStudent.homeroomTeacher}</span>
+                            </div>
+                        ) : null}
                     </div>
                     <Button asChild variant="secondary" size="sm" className="shrink-0 md:hidden">
                         <Link to="/pilih-anak">Ganti</Link>

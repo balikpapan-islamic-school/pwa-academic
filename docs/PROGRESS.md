@@ -200,3 +200,18 @@ Fokus awal yang paling tepat adalah:
 - membuat halaman MVP dalam bentuk statis
 
 Tahap ini akan memberi bentuk nyata pada produk sebelum kita masuk ke integrasi backend.
+
+---
+
+## Update Terbaru
+
+- Beranda sedang diarahkan ke pola `super app home`, bukan dashboard analitik.
+- Struktur home yang dipakai saat ini:
+  - hero personal siswa aktif
+  - shortcut menu 4 grid: `Profil`, `Pembayaran`, `KBM`, `Rapor`
+  - notifikasi sekolah
+  - agenda sekolah atau yayasan
+  - berita terbaru
+- Shortcut menu sudah dipoles sebagai entry point utama home.
+- Notifikasi sekolah sudah diadaptasi ke komponen `Alert` ala shadcn.
+- Untuk sementara, pengerjaan dashboard dianggap cukup dan iterasi berikutnya dapat berpindah ke section lain bila dibutuhkan.
