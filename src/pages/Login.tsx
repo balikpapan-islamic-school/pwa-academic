@@ -138,11 +138,6 @@ export default function Login() {
                         </div>
                         <Button className="w-full" disabled={isSubmitting}>{isSubmitting ? 'Memproses...' : 'Masuk'}</Button>
                     </form>
-                    <div className="rounded-xl bg-muted/60 p-4 text-sm text-muted-foreground">
-                        <p className="font-medium text-foreground">Akun testing API</p>
-                        <p>Username: `arifin`</p>
-                        <p>Password: `password`</p>
-                    </div>
                 </CardContent>
             </Card>
         </main>

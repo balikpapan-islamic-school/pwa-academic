@@ -1,22 +1,18 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { FileSearch } from 'lucide-react'
 import { PageHeader, PageHeaderDescription, PageHeaderHeading } from '@/components/page-header'
 import { ReportList } from '@/components/rapor/report-list'
 import { EmptyState } from '@/components/shared/empty-state'
 import { PageSkeleton } from '@/components/shared/page-skeleton'
 import { SectionHeading } from '@/components/shared/section-heading'
-import { StatusBadge } from '@/components/shared/status-badge'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { useStudent } from '@/contexts/StudentContext'
 import { academicService } from '@/services'
-import { ReportDetail, ReportSummary } from '@/types/academic'
+import { ReportSummary } from '@/types/academic'
 
 export default function Rapor() {
     const { activeStudent } = useStudent()
     const [summaries, setSummaries] = useState<ReportSummary[]>([])
-    const [selectedId, setSelectedId] = useState<string | null>(null)
-    const [detail, setDetail] = useState<ReportDetail | null>(null)
     const [isLoading, setIsLoading] = useState(true)
 
     useEffect(() => {
@@ -24,7 +20,6 @@ export default function Rapor() {
 
         if (!activeStudent) {
             setSummaries([])
-            setDetail(null)
             setIsLoading(false)
             return
         }
@@ -32,52 +27,16 @@ export default function Rapor() {
         setIsLoading(true)
 
         academicService.getReportSummaries(activeStudent.id).then((result) => {
-            if (cancelled) {
-                return
-            }
-
-            setSummaries(result)
-            const nextId = result[0]?.id ?? null
-            setSelectedId(nextId)
-
-            if (!nextId) {
-                setDetail(null)
+            if (!cancelled) {
+                setSummaries(result)
                 setIsLoading(false)
-                return
             }
-
-            academicService.getReportDetail(nextId).then((reportDetail) => {
-                if (!cancelled) {
-                    setDetail(reportDetail)
-                    setIsLoading(false)
-                }
-            })
         })
 
         return () => {
             cancelled = true
         }
     }, [activeStudent])
-
-    useEffect(() => {
-        let cancelled = false
-
-        if (!selectedId) {
-            return
-        }
-
-        academicService.getReportDetail(selectedId).then((result) => {
-            if (!cancelled) {
-                setDetail(result)
-            }
-        })
-
-        return () => {
-            cancelled = true
-        }
-    }, [selectedId])
-
-    const selectedSummary = useMemo(() => summaries.find((item) => item.id === selectedId) ?? null, [summaries, selectedId])
 
     if (isLoading) {
         return <PageSkeleton />
@@ -91,49 +50,38 @@ export default function Rapor() {
             </PageHeader>
 
             {summaries.length > 0 ? (
-                <div className="grid gap-6 xl:grid-cols-[360px_minmax(0,1fr)] xl:items-start">
-                    <div className="space-y-4 xl:sticky xl:top-28">
+                <div className="space-y-4">
+                    <Card className="overflow-hidden border-none bg-gradient-to-br from-amber-500 via-orange-500 to-rose-500 text-white shadow-lg">
+                        <CardContent className="grid gap-4 p-4 sm:p-5 lg:grid-cols-[1.05fr_0.95fr] lg:gap-6 lg:p-8">
+                            <div className="space-y-3 sm:space-y-4">
+                                <p className="text-xs font-medium text-amber-50/90 sm:text-sm">Arsip Hasil Belajar</p>
+                                <div>
+                                    <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl lg:text-4xl">Daftar rapor per semester</h2>
+                                    <p className="mt-2 max-w-2xl text-sm leading-6 text-amber-50/90 lg:text-base">
+                                        Pilih semester untuk membuka halaman detail rapor, melihat capaian setiap mata pelajaran, dan membaca catatan akademik dari sekolah.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="grid gap-3 sm:grid-cols-2">
+                                <div className="rounded-2xl bg-white/15 p-4 backdrop-blur-sm">
+                                    <p className="text-xs uppercase tracking-wide text-amber-50/80">Jumlah Rapor</p>
+                                    <p className="mt-3 text-3xl font-semibold tracking-tight">{summaries.length}</p>
+                                    <p className="mt-1 text-xs text-amber-50/80">semester tersedia</p>
+                                </div>
+                                <div className="rounded-2xl bg-white/15 p-4 backdrop-blur-sm">
+                                    <p className="text-xs uppercase tracking-wide text-amber-50/80">Rapor Terbaru</p>
+                                    <p className="mt-3 text-lg font-semibold tracking-tight">{summaries[0]?.semester ?? '-'}</p>
+                                    <p className="mt-1 text-xs text-amber-50/80">siap dibuka lebih detail</p>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <div className="space-y-4">
                         <SectionHeading title="Daftar Rapor" description="Pilih semester untuk melihat ringkasan dan detail rapor." />
-                        <ReportList items={summaries} onSelect={setSelectedId} />
+                        <ReportList items={summaries} />
                     </div>
-
-                    {detail && selectedSummary ? (
-                        <Card>
-                            <CardHeader>
-                                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                                    <div>
-                                        <CardTitle>{detail.semester}</CardTitle>
-                                        <CardDescription>Rata-rata nilai {detail.average}</CardDescription>
-                                    </div>
-                                    <StatusBadge label={detail.status} tone={detail.status === 'Final' ? 'success' : 'warning'} />
-                                </div>
-                            </CardHeader>
-                            <CardContent className="space-y-6">
-                                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                                    {detail.subjects.map((subject) => (
-                                        <div key={subject.id} className="rounded-2xl bg-muted/60 p-4">
-                                            <p className="font-semibold">{subject.subject}</p>
-                                            <p className="mt-2 text-sm text-muted-foreground">Pengetahuan {subject.knowledgeScore} · Keterampilan {subject.skillScore}</p>
-                                            <p className="mt-3 text-sm text-muted-foreground">{subject.note}</p>
-                                        </div>
-                                    ))}
-                                </div>
-
-                                <div className="grid gap-4 xl:grid-cols-2">
-                                    <div className="rounded-2xl border bg-card p-5">
-                                        <h3 className="font-semibold">Catatan Wali Kelas</h3>
-                                        <p className="mt-2 text-sm text-muted-foreground">{detail.homeroomNote}</p>
-                                    </div>
-                                    <div className="rounded-2xl border bg-card p-5">
-                                        <h3 className="font-semibold">Catatan Kepala Sekolah</h3>
-                                        <p className="mt-2 text-sm text-muted-foreground">{detail.principalNote ?? 'Belum ada catatan tambahan.'}</p>
-                                    </div>
-                                </div>
-
-                                {detail.documentUrl ? <Button variant="outline">Unduh Rapor</Button> : null}
-                            </CardContent>
-                        </Card>
-                    ) : null}
                 </div>
             ) : (
                 <EmptyState title="Belum ada rapor" description="Rapor akan muncul ketika sudah dipublikasikan dari sistem akademik utama." icon={FileSearch} />

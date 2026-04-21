@@ -31,6 +31,28 @@ export function StudentProvider({ children }: { children: ReactNode }) {
 
         setIsLoading(true)
 
+        if (user.role === 'siswa') {
+            const nextStudent = {
+                id: 'student-self',
+                name: user.name,
+                nickname: user.name.split(' ')[0] ?? user.name,
+                nis: '-',
+                unit: 'BIS',
+                className: '-',
+                semesterLabel: '-',
+                homeroomTeacher: '-',
+                avatarInitials: user.avatarInitials,
+            }
+
+            setLinkedStudents([nextStudent])
+            setActiveStudent(nextStudent)
+            window.localStorage.setItem(STORAGE_KEY, nextStudent.id)
+            setIsLoading(false)
+            return () => {
+                cancelled = true
+            }
+        }
+
         academicService.getLinkedStudents(user.id).then((students) => {
             if (cancelled) {
                 return

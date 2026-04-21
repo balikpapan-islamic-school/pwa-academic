@@ -1,6 +1,7 @@
+import { mockGradesByStudentId, mockReportDetailsByReportId, mockReportSummariesByStudentId } from '@/lib/mock-data'
 import { AcademicService } from '@/services/academic-service'
 import { apiRequest, setAccessToken } from '@/services/api-client'
-import { AuthUser, StudentProfile } from '@/types/academic'
+import { AuthUser, DashboardData, ScheduleItem, StudentProfile, StudentSummary } from '@/types/academic'
 
 type LoginResponse = {
     token?: string
@@ -54,6 +55,96 @@ type StudentProfileResponse = {
             jalan?: string | null
         }
     }
+}
+
+type DashboardResponse = {
+    message?: string
+    data?: {
+        student?: {
+            id?: string
+            name?: string
+            nickname?: string
+            nis?: string
+            unit?: string
+            class_name?: string
+            semester_label?: string
+            homeroom_teacher?: string
+        }
+        today_schedule?: Array<{
+            id?: string
+            day?: string
+            subject?: string
+            teacher?: string | null
+            start_time?: string
+            end_time?: string
+            room?: string
+        }>
+        attendance_summary?: {
+            hadir?: number
+            sakit?: number
+            izin?: number
+            alfa?: number
+        }
+        latest_report?: {
+            id?: string
+            semester?: string
+            status?: 'Draft' | 'Final'
+            average?: number
+            published_at?: string | null
+        }
+    }
+}
+
+type ScheduleResponse = {
+    message?: string
+    data?: Array<{
+        id?: string
+        date?: string
+        day?: string
+        subject?: string
+        teacher?: string | null
+        start_time?: string
+        end_time?: string
+        room?: string
+    }>
+}
+
+type AttendanceResponse = {
+    message?: string
+    data?: Array<{
+        id?: string
+        date?: string
+        status?: 'Hadir' | 'Sakit' | 'Izin' | 'Alfa'
+        subject?: string | null
+        note?: string | null
+    }>
+}
+
+type AttendanceSummaryResponse = {
+    message?: string
+    data?: {
+        hadir?: number
+        sakit?: number
+        izin?: number
+        alfa?: number
+    }
+}
+
+type ChildrenResponse = {
+    message?: string
+    data?: Array<{
+        relation_id?: string
+        relationship?: string
+        student?: {
+            id?: string
+            name?: string
+            nickname?: string
+            nis?: string
+            nisn?: string
+            school?: string
+            school_unit?: string
+        }
+    }>
 }
 
 function buildAvatarInitials(name: string) {
@@ -148,6 +239,131 @@ function mapStudentProfileResponse(response: StudentProfileResponse): StudentPro
     }
 }
 
+function mapStudentSummary(input?: {
+    id?: string
+    name?: string
+    nickname?: string
+    nis?: string
+    unit?: string
+    class_name?: string
+    semester_label?: string
+    homeroom_teacher?: string
+}): StudentSummary {
+    const name = input?.name ?? 'Siswa BIS'
+
+    return {
+        id: input?.id ?? 'student-1',
+        name,
+        nickname: input?.nickname ?? name,
+        nis: input?.nis ?? '-',
+        unit: input?.unit ?? 'BIS',
+        className: input?.class_name ?? '-',
+        semesterLabel: input?.semester_label ?? '-',
+        homeroomTeacher: input?.homeroom_teacher ?? '-',
+        avatarInitials: buildAvatarInitials(name),
+    }
+}
+
+function mapDashboardResponse(response: DashboardResponse): DashboardData {
+    const data = response.data ?? {}
+
+    return {
+        student: mapStudentSummary(data.student),
+        todaySchedule: (data.today_schedule ?? []).map((item) => ({
+            id: item.id ?? crypto.randomUUID(),
+            day: item.day ?? '-',
+            subject: item.subject ?? '-',
+            teacher: item.teacher ?? '-',
+            startTime: item.start_time ?? '-',
+            endTime: item.end_time ?? '-',
+            room: item.room ?? '-',
+        })),
+        attendanceSummary: {
+            hadir: data.attendance_summary?.hadir ?? 0,
+            sakit: data.attendance_summary?.sakit ?? 0,
+            izin: data.attendance_summary?.izin ?? 0,
+            alfa: data.attendance_summary?.alfa ?? 0,
+        },
+        latestAttendance: [],
+        gradeHighlights: [],
+        latestReport: {
+            id: data.latest_report?.id ?? 'report-latest',
+            semester: data.latest_report?.semester ?? '-',
+            status: data.latest_report?.status ?? 'Draft',
+            average: data.latest_report?.average ?? 0,
+            publishedAt: data.latest_report?.published_at ?? undefined,
+        },
+        schoolAlert: null,
+        agendas: [],
+        news: [],
+    }
+}
+
+function mapScheduleResponse(response: ScheduleResponse): ScheduleItem[] {
+    return (response.data ?? []).map((item) => ({
+        id: item.id ?? crypto.randomUUID(),
+        date: item.date ?? undefined,
+        day: item.day ?? '-',
+        subject: item.subject ?? '-',
+        teacher: item.teacher ?? '-',
+        startTime: item.start_time ?? '-',
+        endTime: item.end_time ?? '-',
+        room: item.room ?? '-',
+    }))
+}
+
+function mapAttendanceResponse(response: AttendanceResponse) {
+    return (response.data ?? []).map((item) => ({
+        id: item.id ?? crypto.randomUUID(),
+        date: item.date ?? '-',
+        status: item.status ?? 'Hadir',
+        subject: item.subject ?? undefined,
+        note: item.note ?? undefined,
+    }))
+}
+
+function mapAttendanceSummaryResponse(response: AttendanceSummaryResponse) {
+    return {
+        hadir: response.data?.hadir ?? 0,
+        sakit: response.data?.sakit ?? 0,
+        izin: response.data?.izin ?? 0,
+        alfa: response.data?.alfa ?? 0,
+    }
+}
+
+function mapChildrenResponse(response: ChildrenResponse): StudentSummary[] {
+    return (response.data ?? []).map((item) => {
+        const student = item.student ?? {}
+        const name = student.name ?? 'Siswa BIS'
+
+        return {
+            id: student.id ?? item.relation_id ?? crypto.randomUUID(),
+            name,
+            nickname: student.nickname ?? name,
+            nis: student.nis ?? '-',
+            nisn: student.nisn ?? undefined,
+            unit: student.school_unit ?? 'BIS',
+            schoolName: student.school ?? undefined,
+            className: '-',
+            semesterLabel: '-',
+            homeroomTeacher: '-',
+            avatarInitials: buildAvatarInitials(name),
+        }
+    })
+}
+
+function resolveMockStudentId(studentId: string) {
+    if (mockGradesByStudentId[studentId] || mockReportSummariesByStudentId[studentId]) {
+        return studentId
+    }
+
+    return 'student-1'
+}
+
+function resolveMockReportDetail(reportId: string) {
+    return mockReportDetailsByReportId[reportId] ?? mockReportDetailsByReportId['rep-1']
+}
+
 export const httpAcademicService: AcademicService = {
     async login(identity, password) {
         const response = await apiRequest<LoginResponse>('/auth/login', {
@@ -187,36 +403,37 @@ export const httpAcademicService: AcademicService = {
         return mapStudentProfileResponse(response)
     },
 
-    getLinkedStudents(userId) {
-        return apiRequest(`/users/${userId}/students`)
+    getLinkedStudents(_userId) {
+        return apiRequest<ChildrenResponse>('/children').then(mapChildrenResponse)
     },
 
     getDashboard(studentId) {
-        return apiRequest(`/students/${studentId}/dashboard`)
+        void studentId
+        return apiRequest<DashboardResponse>('/dashboard').then(mapDashboardResponse)
     },
 
-    getSchedule(studentId) {
-        return apiRequest(`/students/${studentId}/schedule`)
+    getSchedule(_studentId) {
+        return apiRequest<ScheduleResponse>('/schedule').then(mapScheduleResponse)
     },
 
-    getAttendance(studentId) {
-        return apiRequest(`/students/${studentId}/attendance`)
+    getAttendance(_studentId) {
+        return apiRequest<AttendanceResponse>('/attendance').then(mapAttendanceResponse)
     },
 
-    getAttendanceSummary(studentId) {
-        return apiRequest(`/students/${studentId}/attendance/summary`)
+    getAttendanceSummary(_studentId) {
+        return apiRequest<AttendanceSummaryResponse>('/attendance/summary').then(mapAttendanceSummaryResponse)
     },
 
     getGrades(studentId) {
-        return apiRequest(`/students/${studentId}/grades`)
+        return Promise.resolve(mockGradesByStudentId[resolveMockStudentId(studentId)] ?? [])
     },
 
     getReportSummaries(studentId) {
-        return apiRequest(`/students/${studentId}/reports`)
+        return Promise.resolve(mockReportSummariesByStudentId[resolveMockStudentId(studentId)] ?? [])
     },
 
     getReportDetail(reportId) {
-        return apiRequest(`/reports/${reportId}`)
+        return Promise.resolve(resolveMockReportDetail(reportId))
     },
 
     getNotifications(userId) {

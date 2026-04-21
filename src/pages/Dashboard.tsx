@@ -10,7 +10,28 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { useStudent } from '@/contexts/StudentContext'
 import { academicService } from '@/services'
-import { DashboardData } from '@/types/academic'
+import { AgendaItem, DashboardData, NewsItem, SchoolAlert } from '@/types/academic'
+
+const dummySchoolAlert: SchoolAlert = {
+    id: 'dashboard-alert-1',
+    title: 'Pengumuman Kegiatan Pekan Ini',
+    message: 'Mohon siswa hadir tepat waktu untuk rangkaian kegiatan akademik dan pembinaan yang berlangsung sepanjang pekan ini.',
+    tone: 'info',
+    actionLabel: 'Lihat KBM',
+    actionHref: '/jadwal',
+}
+
+const dummyAgendas: AgendaItem[] = [
+    { id: 'dashboard-agenda-1', date: '21 Apr 2026', title: 'Simulasi UTS Kelas 6', scope: 'SDIT BIS', location: 'Gedung A' },
+    { id: 'dashboard-agenda-2', date: '24 Apr 2026', title: 'Tahfidz Akbar Yayasan', scope: 'Yayasan BIS', location: 'Masjid Sekolah' },
+    { id: 'dashboard-agenda-3', date: '28 Apr 2026', title: 'Pertemuan Wali Murid', scope: 'SDIT', location: 'Aula Utama' },
+]
+
+const dummyNews: NewsItem[] = [
+    { id: 'dashboard-news-1', title: 'Program Literasi Pagi Dimulai', summary: 'Program membaca 15 menit sebelum pelajaran pertama dimulai kembali diberlakukan untuk seluruh siswa.', date: '17 Apr 2026', category: 'Sekolah' },
+    { id: 'dashboard-news-2', title: 'Tim Olimpiade BIS Raih Juara', summary: 'Siswa BIS meraih hasil baik pada kompetisi tingkat kota dan membawa pulang beberapa penghargaan.', date: '15 Apr 2026', category: 'Prestasi' },
+    { id: 'dashboard-news-3', title: 'Jadwal Ekstrakurikuler Diperbarui', summary: 'Beberapa kegiatan ekstrakurikuler mengalami penyesuaian jadwal efektif mulai pekan ini.', date: '12 Apr 2026', category: 'Kegiatan' },
+]
 
 export default function Dashboard() {
     const { activeStudent } = useStudent()
@@ -79,6 +100,10 @@ export default function Dashboard() {
         },
     ]
 
+    const schoolAlert = dummySchoolAlert
+    const agendas = dummyAgendas
+    const news = dummyNews
+
     return (
         <div className="space-y-6">
             <PageHeader>
@@ -86,19 +111,19 @@ export default function Dashboard() {
             </PageHeader>
 
             <Card className="overflow-hidden border-none bg-gradient-to-br from-sky-600 via-sky-500 to-cyan-400 text-white shadow-lg">
-                <CardContent className="grid gap-6 p-6 lg:grid-cols-[1.15fr_0.85fr] lg:p-8">
-                    <div className="space-y-4">
-                        <p className="text-sm font-medium text-sky-50/90">Assalamu'alaikum</p>
+                <CardContent className="grid gap-4 p-4 sm:p-5 lg:grid-cols-[1.15fr_0.85fr] lg:gap-6 lg:p-8">
+                    <div className="space-y-3 sm:space-y-4">
+                        <p className="text-xs font-medium text-sky-50/90 sm:text-sm">Assalamu'alaikum</p>
                         <div>
-                            <h2 className="text-3xl font-semibold tracking-tight lg:text-4xl">{data.student.name}</h2>
-                            <p className="mt-2 text-sm text-sky-50/90 lg:text-base">{data.student.unit} · Kelas {data.student.className} · Semester {data.student.semesterLabel}</p>
+                            <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl lg:text-4xl">{data.student.name}</h2>
+                            <p className="mt-2 text-sm leading-6 text-sky-50/90 lg:text-base">{data.student.unit} · Kelas {data.student.className} · Semester {data.student.semesterLabel}</p>
                         </div>
                         <div className="grid gap-3 sm:grid-cols-2 xl:max-w-xl">
-                            <div className="rounded-2xl bg-white/15 p-4 backdrop-blur-sm">
+                            <div className="rounded-2xl bg-white/15 p-3.5 backdrop-blur-sm sm:p-4">
                                 <p className="text-xs uppercase tracking-wide text-sky-50/80">Wali Kelas</p>
                                 <p className="mt-2 text-base font-semibold">{data.student.homeroomTeacher}</p>
                             </div>
-                            <div className="rounded-2xl bg-white/15 p-4 backdrop-blur-sm">
+                            <div className="rounded-2xl bg-white/15 p-3.5 backdrop-blur-sm sm:p-4">
                                 <p className="text-xs uppercase tracking-wide text-sky-50/80">Rapor Terakhir</p>
                                 <div className="mt-2 flex items-center gap-2">
                                     <p className="text-base font-semibold">{data.latestReport.average}</p>
@@ -112,18 +137,18 @@ export default function Dashboard() {
 
             <section className="space-y-4">
                 <SectionHeading title="Menu Utama" />
-                <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+                <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
                     {shortcuts.map((item) => (
                         <Link
                             key={item.href}
                             to={item.href}
-                            className={`group relative overflow-hidden rounded-[1.75rem] border p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md md:p-4.5 ${item.cardClassName}`}>
+                            className={`group relative overflow-hidden rounded-[1.5rem] border p-3.5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md md:rounded-[1.75rem] md:p-4.5 ${item.cardClassName}`}>
                             <div className={`pointer-events-none absolute -right-6 -top-6 size-24 rounded-full bg-gradient-to-br blur-2xl transition-opacity group-hover:opacity-100 ${item.glowClassName}`} />
                             <div className="pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-white/40 to-transparent opacity-80 transition-opacity dark:from-white/5" />
-                            <div className="relative flex min-h-26 flex-col justify-between gap-4 md:min-h-28">
+                            <div className="relative flex min-h-22 flex-col justify-between gap-3 md:min-h-28 md:gap-4">
                                 <div className="flex items-start justify-between gap-3">
-                                    <div className={`rounded-[1.25rem] p-3 shadow-sm transition-transform duration-200 group-hover:scale-105 ${item.iconClassName}`}>
-                                        <item.icon className="size-5 md:size-6" />
+                                    <div className={`rounded-[1.1rem] p-2.5 shadow-sm transition-transform duration-200 group-hover:scale-105 md:rounded-[1.25rem] md:p-3 ${item.iconClassName}`}>
+                                        <item.icon className="size-4.5 md:size-6" />
                                     </div>
                                     <div className="rounded-full border border-black/5 bg-white/80 p-2 text-muted-foreground opacity-70 transition-all duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:opacity-100 dark:border-white/10 dark:bg-background/70">
                                         <ArrowUpRight className="size-4" />
@@ -139,18 +164,18 @@ export default function Dashboard() {
                 </div>
             </section>
 
-            {data.schoolAlert ? (
+            {schoolAlert ? (
                 <section className="space-y-4">
                     <SectionHeading title="Notifikasi Sekolah" />
                     <Alert className={`overflow-hidden shadow-sm bg-emerald-600 text-white`}>
                         <div className="flex flex-col gap-2 pr-0 md:pr-40">
-                            <AlertTitle>{data.schoolAlert.title}</AlertTitle>
-                            <AlertDescription className='text-white'>{data.schoolAlert.message}</AlertDescription>
+                            <AlertTitle>{schoolAlert.title}</AlertTitle>
+                            <AlertDescription className='text-white'>{schoolAlert.message}</AlertDescription>
                         </div>
-                        {data.schoolAlert.actionHref && data.schoolAlert.actionLabel ? (
+                        {schoolAlert.actionHref && schoolAlert.actionLabel ? (
                             <AlertAction>
-                                <Button variant={'ghost'} asChild>
-                                    <Link to={data.schoolAlert.actionHref}>
+                                <Button variant={'ghost'} asChild className="w-full sm:w-auto">
+                                    <Link to={schoolAlert.actionHref}>
                                         <label >Buka</label>
                                         <ArrowRight className="size-5" />
                                     </Link>
@@ -165,7 +190,7 @@ export default function Dashboard() {
                 <section className="space-y-4">
                     <SectionHeading title="Agenda Sekolah / Yayasan" />
                     <div className="space-y-3">
-                        {data.agendas.map((item) => (
+                        {agendas.map((item) => (
                             <Card key={item.id}>
                                 <CardContent className="flex items-start justify-between gap-4 py-0">
                                     <div className="flex items-start gap-4">
@@ -187,7 +212,7 @@ export default function Dashboard() {
                         action={<Button variant="ghost" asChild><Link to="/notifikasi">Lihat Semua</Link></Button>}
                     />
                     <div className="space-y-3">
-                        {data.news.map((item) => (
+                        {news.map((item) => (
                             <Card key={item.id}>
                                 <CardContent className="flex items-start gap-4 py-5">
                                     <div className="rounded-2xl bg-muted p-3 text-muted-foreground">

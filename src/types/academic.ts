@@ -17,7 +17,9 @@ export type StudentSummary = {
     name: string
     nickname: string
     nis: string
+    nisn?: string
     unit: string
+    schoolName?: string
     className: string
     semesterLabel: string
     homeroomTeacher: string
@@ -35,6 +37,7 @@ export type StudentProfile = StudentSummary & {
 
 export type ScheduleItem = {
     id: string
+    date?: string
     day: string
     subject: string
     teacher: string

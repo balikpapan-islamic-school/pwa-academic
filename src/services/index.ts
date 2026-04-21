@@ -13,6 +13,14 @@ function resolveAcademicService(): AcademicService {
             getCurrentUser: httpAcademicService.getCurrentUser,
             logout: httpAcademicService.logout,
             getStudentProfile: httpAcademicService.getStudentProfile,
+            getLinkedStudents: httpAcademicService.getLinkedStudents,
+            getDashboard: httpAcademicService.getDashboard,
+            getSchedule: httpAcademicService.getSchedule,
+            getAttendance: httpAcademicService.getAttendance,
+            getAttendanceSummary: httpAcademicService.getAttendanceSummary,
+            getGrades: httpAcademicService.getGrades,
+            getReportSummaries: httpAcademicService.getReportSummaries,
+            getReportDetail: httpAcademicService.getReportDetail,
         }
     }
 

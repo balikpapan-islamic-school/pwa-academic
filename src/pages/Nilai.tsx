@@ -53,9 +53,9 @@ export default function Nilai() {
                 title="Semester"
                 description="UI ini sudah disiapkan untuk pemilihan semester saat data backend final tersedia."
                 action={
-                    <div className="flex gap-2">
+                    <div className="flex w-full flex-wrap gap-2 sm:w-auto sm:justify-end">
                         {['Semester Aktif', 'Semester Sebelumnya'].map((item) => (
-                            <Button key={item} variant={semester === item ? 'default' : 'outline'} onClick={() => setSemester(item)}>
+                            <Button key={item} className="w-full sm:w-auto" variant={semester === item ? 'default' : 'outline'} onClick={() => setSemester(item)}>
                                 {item}
                             </Button>
                         ))}

@@ -6,10 +6,9 @@ import { ReportSummary } from '@/types/academic'
 
 type ReportListProps = {
     items: ReportSummary[]
-    onSelect: (reportId: string) => void
 }
 
-export function ReportList({ items, onSelect }: ReportListProps) {
+export function ReportList({ items }: ReportListProps) {
     return (
         <div className="space-y-3">
             {items.map((item) => (
@@ -21,10 +20,10 @@ export function ReportList({ items, onSelect }: ReportListProps) {
                                 Rata-rata {item.average} {item.publishedAt ? `· Terbit ${item.publishedAt}` : '· Menunggu finalisasi'}
                             </p>
                         </div>
-                        <div className="flex items-center gap-3">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                             <StatusBadge label={item.status} tone={item.status === 'Final' ? 'success' : 'warning'} />
-                            <Button variant="outline" asChild>
-                                <Link to="/rapor" onClick={() => onSelect(item.id)}>Lihat Detail</Link>
+                            <Button variant="outline" asChild className="w-full sm:w-auto">
+                                <Link to={`/rapor/${item.id}`}>Lihat Detail</Link>
                             </Button>
                         </div>
                     </CardContent>
