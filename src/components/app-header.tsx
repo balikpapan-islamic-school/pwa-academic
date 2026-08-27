@@ -2,7 +2,7 @@ import { Link, NavLink } from 'react-router-dom'
 import { Bell, ChevronRight, LogOut, UserRound } from 'lucide-react'
 import { mainMenu } from '@/config/menu'
 import { AppLogo } from './app-logo'
-import { ModeToggle } from './mode-toggle'
+
 import { Button, buttonVariants } from './ui/button'
 import { cn } from '@/lib/utils'
 import { useNotifications } from '@/contexts/NotificationsContext'
@@ -47,9 +47,7 @@ export function AppHeader() {
                         Ganti Anak
                         <ChevronRight className="size-4" />
                     </NavLink>
-                    <div className="shrink-0">
-                        <ModeToggle />
-                    </div>
+                    
                     <NavLink
                         to="/notifikasi"
                         className={({ isActive }) => cn(

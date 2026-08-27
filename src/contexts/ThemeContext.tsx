@@ -1,52 +1,20 @@
-import { createContext, ReactNode, use, useEffect, useState } from "react"
+import { createContext, ReactNode, use } from "react"
 
 type ThemeType = {
     theme: string
-    setTheme: (theme: string) => void
 }
 
 export const ThemeContext = createContext<ThemeType | null>(null)
 
-export function ThemeProvider({
-    children,
-    defaultTheme = "system",
-    storageKey = "shadcn-ui-theme",
-}: {
-    children: ReactNode
-    defaultTheme?: string
-    storageKey?: string
-}) {
-    const [theme, setTheme] = useState(
-        () => localStorage.getItem(storageKey) ?? defaultTheme
-    )
-
-    useEffect(() => {
+export function ThemeProvider({ children }: { children: ReactNode }) {
+    if (typeof window !== "undefined") {
         const root = window.document.documentElement
-
-        root.classList.remove("light", "dark")
-
-        if (theme === "system") {
-            const systemTheme = window.matchMedia("(prefers-color-scheme: dark)")
-                .matches
-                ? "dark"
-                : "light"
-
-            root.classList.add(systemTheme)
-            return
-        }
-
-        root.classList.add(theme)
-    }, [theme])
+        root.classList.remove("dark")
+        root.classList.add("light")
+    }
 
     return (
-        <ThemeContext
-            value={{
-                theme,
-                setTheme: (theme: string) => {
-                    localStorage.setItem(storageKey, theme)
-                    setTheme(theme)
-                },
-            }}>
+        <ThemeContext value={{ theme: "light" }}>
             {children}
         </ThemeContext>
     )
