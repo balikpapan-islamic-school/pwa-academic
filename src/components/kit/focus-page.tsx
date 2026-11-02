@@ -12,12 +12,17 @@ type FocusPageProps = {
     // Bila true, tombol kembali meminta konfirmasi dulu agar isian form tidak hilang tanpa sengaja.
     isDirty?: boolean
     headerExtra?: ReactNode
+    // Foto latar header (mis. sampul berita); header jadi lebih tinggi dengan gradasi gelap agar teks tetap terbaca.
+    backgroundImageUrl?: string | null
     children: ReactNode
 }
 
 // Kerangka halaman alur fokus (tanpa navigasi bawah): header hijau melengkung + kartu konten yang menumpuk di atasnya.
-export function FocusPage({ title, subtitle, onBack, isDirty = false, headerExtra, children }: FocusPageProps) {
+export function FocusPage({ title, subtitle, onBack, isDirty = false, headerExtra, backgroundImageUrl, children }: FocusPageProps) {
     const [isLeaveDialogOpen, setIsLeaveDialogOpen] = useState(false)
+    // Gambar gagal dimuat: kembali ke header hijau biasa.
+    const [failedImageUrl, setFailedImageUrl] = useState<string | null>(null)
+    const imageUrl = backgroundImageUrl && backgroundImageUrl !== failedImageUrl ? backgroundImageUrl : null
 
     function handleBack() {
         if (isDirty) {
@@ -30,16 +35,25 @@ export function FocusPage({ title, subtitle, onBack, isDirty = false, headerExtr
     return (
         <PullToRefresh>
             <main className="mx-auto flex min-h-screen max-w-md flex-col bg-background pb-10 text-ink">
-                <div className="relative overflow-hidden rounded-b-[36px] bg-primary px-6 pb-16 pt-[52px] text-white">
-                    <div aria-hidden="true" className="absolute -right-10 -top-[30px] size-[170px] rounded-full bg-brand-mid" />
-                    <div aria-hidden="true" className="absolute -bottom-[50px] right-[70px] size-[110px] rounded-full bg-brand-dark" />
+                <div className={cn('relative overflow-hidden rounded-b-[36px] px-6 pb-16 pt-[52px] text-white', imageUrl ? 'flex min-h-[380px] flex-col bg-ink' : 'bg-primary')}>
+                    {imageUrl ? (
+                        <>
+                            <img src={imageUrl} alt="" onError={() => setFailedImageUrl(imageUrl)} className="absolute inset-0 size-full object-cover motion-safe:animate-[cover-zoom_1.2s_ease-out_both]" />
+                            <div aria-hidden="true" className="absolute inset-0 bg-linear-to-b from-black/45 via-black/15 to-black/80" />
+                        </>
+                    ) : (
+                        <>
+                            <div aria-hidden="true" className="absolute -right-10 -top-[30px] size-[170px] rounded-full bg-brand-mid" />
+                            <div aria-hidden="true" className="absolute -bottom-[50px] right-[70px] size-[110px] rounded-full bg-brand-dark" />
+                        </>
+                    )}
                     {onBack ? (
-                        <button type="button" onClick={handleBack} aria-label="Kembali" className="relative flex size-11 items-center justify-center rounded-full bg-white/[0.18]">
+                        <button type="button" onClick={handleBack} aria-label="Kembali" className={cn('relative flex size-11 items-center justify-center rounded-full', imageUrl ? 'bg-black/30 backdrop-blur-md' : 'bg-white/[0.18]')}>
                             <ArrowLeft className="size-[22px]" strokeWidth={2.2} />
                         </button>
                     ) : null}
-                    <h1 className={cn('relative font-display text-[28px] font-bold leading-[1.1]', onBack ? 'mt-[22px]' : 'mt-[66px]')}>{title}</h1>
-                    {subtitle ? <p className="relative mt-2 text-[15px] text-brand-soft">{subtitle}</p> : null}
+                    <h1 className={cn('relative font-display text-[28px] font-bold leading-[1.1]', imageUrl ? 'mt-auto pt-[22px] [text-shadow:0_2px_12px_rgba(0,0,0,0.35)]' : onBack ? 'mt-[22px]' : 'mt-[66px]')}>{title}</h1>
+                    {subtitle ? <p className={cn('relative mt-2 text-[15px]', imageUrl ? 'text-white/85' : 'text-brand-soft')}>{subtitle}</p> : null}
                     {headerExtra}
                 </div>
                 {children}

@@ -76,15 +76,6 @@ function renderNode(node: Node, key: number): ReactNode {
     return <Tag key={key} className={allowedTags[tag] || undefined}>{children}</Tag>
 }
 
-// True bila konten punya teks yang bisa dibaca; `<p></p>` atau spasi saja dianggap kosong.
-export function hasNewsText(content: string | null | undefined) {
-    if (!content?.trim()) {
-        return false
-    }
-
-    return Boolean(new DOMParser().parseFromString(content, 'text/html').body.textContent?.trim())
-}
-
 // Isi berita dari GET /news/{id}. HTML diubah jadi elemen React lewat daftar tag yang diizinkan (tanpa innerHTML);
 // teks biasa dipecah per paragraf pada baris kosong.
 export function NewsContent({ content }: { content: string }) {

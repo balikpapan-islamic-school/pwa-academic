@@ -7,6 +7,7 @@ import { useAuth } from './contexts/AuthContext'
 import { useHasLinkedStudent } from './hooks/use-has-linked-student'
 import Absensi from './pages/Absensi'
 import AjukanIzin from './pages/AjukanIzin'
+import Berita from './pages/Berita'
 import BeritaDetail from './pages/BeritaDetail'
 import Akademik from './pages/Akademik'
 import Dashboard from './pages/Dashboard'
@@ -70,6 +71,7 @@ export default function Router() {
                 {/* Alur fokus tanpa navigasi bawah. */}
                 <Route path="/hubungkan-anak" element={<HubungkanAnak />} />
                 {/* Berita juga tampil untuk wali yang belum terhubung ke peserta didik. */}
+                <Route path="/berita" element={<Berita />} />
                 <Route path="/berita/:newsId" element={<BeritaDetail />} />
                 <Route element={<RequireLinkedStudent />}>
                     <Route path="/absensi/izin" element={<AjukanIzin />} />

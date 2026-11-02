@@ -1,14 +1,14 @@
 import { FileText, Newspaper, SearchX } from 'lucide-react'
 import { useParams } from 'react-router-dom'
 import { FocusPage } from '@/components/kit/focus-page'
-import { hasNewsText, NewsContent } from '@/components/news/news-content'
+import { NewsContent } from '@/components/news/news-content'
 import { EmptyState, LoadErrorState } from '@/components/shared/empty-state'
 import { LoadingRegion } from '@/components/shared/skeletons'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useApiData } from '@/hooks/use-api-data'
 import { useGoBack } from '@/hooks/use-go-back'
 import { formatLongDate, parseIsoDateTime } from '@/lib/format'
-import { newsCategoryLabels, newsCategoryTones } from '@/lib/news'
+import { hasNewsText, newsCategoryLabels, newsCategoryTones } from '@/lib/news'
 import { cn } from '@/lib/utils'
 import { academicService } from '@/services'
 import { ApiError } from '@/services/api-client'
@@ -53,15 +53,15 @@ export default function BeritaDetail() {
             title={article.title}
             subtitle={[formatLongDate(parseIsoDateTime(article.publishedAt)), article.author].filter(Boolean).join(' · ')}
             onBack={goBack}
+            backgroundImageUrl={article.coverImageUrl}
             headerExtra={(
-                <span className="relative mt-3 inline-block rounded-full bg-white px-2.5 py-1 text-xs font-extrabold text-brand-dark">
+                <span className="relative mt-3 self-start inline-block rounded-full bg-white px-2.5 py-1 text-xs font-extrabold text-brand-dark">
                     {newsCategoryLabels[article.category]}
                 </span>
             )}>
-            <article className="relative mx-5 -mt-9 flex flex-col gap-4 overflow-hidden rounded-[28px] bg-card pb-[22px] shadow-float">
-                {article.coverImageUrl ? (
-                    <img src={article.coverImageUrl} alt="" className="h-[200px] w-full object-cover" />
-                ) : (
+            <article className={cn('relative mx-5 -mt-9 flex flex-col gap-4 overflow-hidden rounded-[28px] bg-card pb-[22px] shadow-float', article.coverImageUrl && 'pt-[22px]')}>
+                {/* Sampul sudah menjadi latar header; tanpa sampul, kartu memakai ilustrasi kategori. */}
+                {article.coverImageUrl ? null : (
                     <div aria-hidden="true" className={cn('flex h-[150px] items-center justify-center', tone.bg, tone.fg)}>
                         <Newspaper className="size-12" strokeWidth={1.6} />
                     </div>

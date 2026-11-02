@@ -7,3 +7,19 @@ export const newsCategoryTones: Record<NewsCategory, { bg: string, fg: string }>
     kegiatan: { bg: 'bg-pastel-violet', fg: 'text-pastel-violet-fg' },
     prestasi: { bg: 'bg-pastel-coral', fg: 'text-pastel-coral-fg' },
 }
+
+export const newsCategoryOptions: Array<{ value: NewsCategory | null, label: string }> = [
+    { value: null, label: 'Semua' },
+    { value: 'pengumuman', label: 'Pengumuman' },
+    { value: 'kegiatan', label: 'Kegiatan' },
+    { value: 'prestasi', label: 'Prestasi' },
+]
+
+// True bila konten punya teks yang bisa dibaca; `<p></p>` atau spasi saja dianggap kosong.
+export function hasNewsText(content: string | null | undefined) {
+    if (!content?.trim()) {
+        return false
+    }
+
+    return Boolean(new DOMParser().parseFromString(content, 'text/html').body.textContent?.trim())
+}
