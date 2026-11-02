@@ -75,8 +75,30 @@ export default function Profil() {
     const accountName = user?.name ?? ''
     const accountInitials = user?.avatarInitials ?? ''
     const accountAvatarUrl = user?.avatarUrl ?? null
-    const [notificationsOn, setNotificationsOn] = useState(true)
+    // null sampai GET /me/preferences selesai; sakelar dinonaktifkan selama itu.
+    const [notificationsOn, setNotificationsOn] = useState<boolean | null>(null)
     const [isLogoutOpen, setIsLogoutOpen] = useState(false)
+
+    useEffect(() => {
+        let cancelled = false
+
+        academicService.getNotificationPreferences()
+            .then((preferences) => {
+                if (!cancelled) {
+                    setNotificationsOn(preferences.pushNotifications)
+                }
+            })
+            .catch(() => {
+                // Sakelar tetap tampil dengan nilai bawaan agar halaman Profil tidak terganggu.
+                if (!cancelled) {
+                    setNotificationsOn(true)
+                }
+            })
+
+        return () => {
+            cancelled = true
+        }
+    }, [])
 
     useEffect(() => {
         if (!student) {
@@ -109,12 +131,24 @@ export default function Profil() {
     const profile = currentProfile?.status === 'ready' ? currentProfile.profile : null
     const isStudentActive = profile?.statusActive ?? student?.statusActive ?? true
 
-    function toggleNotifications() {
+    // Optimistic: sakelar langsung berubah, dikembalikan bila PATCH gagal.
+    async function toggleNotifications() {
+        if (notificationsOn === null) {
+            return
+        }
+
         const next = !notificationsOn
         setNotificationsOn(next)
-        toast.success(next ? 'Notifikasi diaktifkan' : 'Notifikasi dimatikan', {
-            description: next ? 'Anda akan menerima kabar nilai, absensi, dan izin.' : 'Anda tidak akan menerima pemberitahuan dari aplikasi.',
-        })
+
+        try {
+            await academicService.updateNotificationPreferences({ pushNotifications: next })
+            toast.success(next ? 'Notifikasi diaktifkan.' : 'Notifikasi dimatikan.', {
+                description: next ? 'Anda akan menerima kabar nilai, absensi, dan izin.' : 'Anda tidak akan menerima pemberitahuan dari aplikasi.',
+            })
+        } catch (caughtError) {
+            setNotificationsOn(!next)
+            toast.error(caughtError instanceof Error ? caughtError.message : 'Pengaturan notifikasi gagal disimpan.')
+        }
     }
 
     return (
@@ -209,7 +243,7 @@ export default function Profil() {
             <section aria-labelledby="set-h" className="mx-5 mt-[22px]">
                 <h3 id="set-h" className="mb-2.5 ml-1 font-display text-lg font-semibold">Pengaturan</h3>
                 <div className="rounded-3xl bg-card px-2 py-1">
-                    <SettingsRow icon={Users} iconClassName="bg-pastel-violet text-primary" label="Data Orang Tua / Wali" />
+                    {student ? <SettingsRow icon={Users} iconClassName="bg-pastel-violet text-primary" label="Data Orang Tua / Wali" to="/profil/wali" /> : null}
                     <SettingsRow icon={KeyRound} iconClassName="bg-pastel-mint text-[#0F7A73]" label={user?.hasPassword !== false ? 'Ubah Kata Sandi' : 'Buat Kata Sandi'} to="/profil/kata-sandi" />
                     <div className="flex min-h-14 items-center gap-3 px-2">
                         <span aria-hidden="true" className="flex size-10 items-center justify-center rounded-xl bg-pastel-sun text-[#9A6400]">
@@ -219,10 +253,11 @@ export default function Profil() {
                         <button
                             type="button"
                             role="switch"
-                            aria-checked={notificationsOn}
+                            aria-checked={notificationsOn ?? false}
                             aria-labelledby="notif-l"
+                            disabled={notificationsOn === null}
                             onClick={toggleNotifications}
-                            className={cn('flex h-8 w-[52px] rounded-full p-[3px] transition-colors', notificationsOn ? 'justify-end bg-primary' : 'justify-start bg-[#C3CEC5]')}>
+                            className={cn('flex h-8 w-[52px] rounded-full p-[3px] transition-colors disabled:opacity-50', notificationsOn ? 'justify-end bg-primary' : 'justify-start bg-[#C3CEC5]')}>
                             <span className="size-[26px] rounded-full bg-white shadow-[0_2px_4px_rgba(0,0,0,0.2)]" />
                         </button>
                     </div>

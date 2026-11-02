@@ -13,11 +13,12 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useStudent } from '@/contexts/StudentContext'
 import { useHasLinkedStudent } from '@/hooks/use-has-linked-student'
 import { hasPendingChildRequest } from '@/lib/child-requests'
-import { ChildLinkRequest, dummyBills, dummyCurrentLesson, dummyGradeEntries, dummyNextLessons, dummyStudent, dummyTodayLessonCount, isNewGrade } from '@/lib/dummy-ui'
-import { formatCurrency } from '@/lib/format'
+import { useApiData } from '@/hooks/use-api-data'
+import { ChildLinkRequest, dummyBills } from '@/lib/dummy-ui'
+import { formatClock, formatCurrency } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { academicService } from '@/services'
-import { StudentSummary } from '@/types/academic'
+import { Lesson, StudentSummary } from '@/types/academic'
 
 // Beranda tanpa peserta didik: aksi header langsung ke Hubungkan Peserta Didik.
 function AddChildButton() {
@@ -66,12 +67,76 @@ function StudentDashboardSkeleton() {
     )
 }
 
+// "07:30" -> menit sejak tengah malam.
+function minutesOf(time: string) {
+    const [hours, minutes] = time.split(':').map(Number)
+    return hours * 60 + minutes
+}
+
+// Pelajaran yang sedang berjalan & progresnya dihitung dari jam perangkat (GET /dashboard hanya mengirim daftar pelajaran).
+function TodaySchedule({ lessons, isSchoolDay }: { lessons: Lesson[], isSchoolDay: boolean }) {
+    const now = new Date()
+    const nowMinutes = now.getHours() * 60 + now.getMinutes()
+    const current = lessons.find((lesson) => minutesOf(lesson.startTime) <= nowMinutes && nowMinutes < minutesOf(lesson.endTime))
+    const upcoming = lessons.filter((lesson) => minutesOf(lesson.startTime) > nowMinutes)
+    const highlighted = current ?? upcoming[0]
+    const nextLessons = (current ? upcoming : upcoming.slice(1)).slice(0, 3)
+
+    if (!isSchoolDay || lessons.length === 0) {
+        return <p className="rounded-3xl bg-card p-4 text-sm text-subtle shadow-soft">Tidak ada pelajaran hari ini.</p>
+    }
+    if (!highlighted) {
+        return <p className="rounded-3xl bg-card p-4 text-sm text-subtle shadow-soft">Pelajaran hari ini sudah selesai.</p>
+    }
+
+    const progress = current
+        ? Math.round(((nowMinutes - minutesOf(current.startTime)) / (minutesOf(current.endTime) - minutesOf(current.startTime))) * 100)
+        : 0
+
+    return (
+        <>
+            <Link to="/akademik?tab=kelas" className="flex items-center gap-3.5 rounded-3xl bg-card p-3.5 shadow-soft">
+                <span aria-hidden="true" className="flex size-[72px] shrink-0 items-center justify-center rounded-[18px] bg-pastel-violet font-display text-2xl font-bold text-pastel-violet-fg">
+                    {highlighted.subject.name.charAt(0)}
+                </span>
+                <span className="flex min-w-0 flex-grow flex-col gap-1">
+                    <span className={cn('flex items-center gap-1.5 text-xs font-extrabold', current ? 'text-[#0F7A73]' : 'text-subtle')}>
+                        <span aria-hidden="true" className={cn('size-2 rounded-full', current ? 'bg-[#0F7A73]' : 'bg-subtle')} />
+                        {current ? 'Sedang berlangsung' : 'Berikutnya'}
+                    </span>
+                    <span className="text-base font-extrabold">{highlighted.subject.name}</span>
+                    <span className="text-[13px] text-subtle">
+                        {[`${formatClock(highlighted.startTime)} – ${formatClock(highlighted.endTime)}`, highlighted.room].filter(Boolean).join(' · ')}
+                    </span>
+                    {current ? (
+                        <span aria-hidden="true" className="mt-1 h-2 overflow-hidden rounded-full bg-muted">
+                            <span className="block h-full rounded-full bg-[#45BFB4]" style={{ width: `${progress}%` }} />
+                        </span>
+                    ) : null}
+                </span>
+            </Link>
+            {nextLessons.length > 0 ? (
+                <div className="rounded-3xl bg-card px-3.5 py-1.5 shadow-soft">
+                    {nextLessons.map((lesson) => (
+                        <div key={lesson.id} className="flex items-center gap-3 py-2.5">
+                            <span className="w-16 text-[13px] font-extrabold text-subtle">{formatClock(lesson.startTime)}</span>
+                            <span className="flex-grow text-[15px] font-bold">{lesson.subject.name}</span>
+                            {lesson.room ? <span className="text-[13px] text-subtle">{lesson.room}</span> : null}
+                        </div>
+                    ))}
+                </div>
+            ) : null}
+        </>
+    )
+}
+
 function StudentDashboard({ child }: { child: StudentSummary }) {
     const { linkedStudents, setActiveStudentId } = useStudent()
     const childIndex = linkedStudents.findIndex((item) => item.id === child.id)
     const childMeta = [child.className !== '-' ? `Kelas ${child.className}` : null, child.schoolName].filter(Boolean).join(' · ')
 
-    const newGradeCount = dummyGradeEntries.filter((entry) => isNewGrade(entry)).length
+    const dashboard = useApiData(() => academicService.getDashboard(child.id), [child.id])
+    const summary = dashboard.data
     const nearestBill = dummyBills[0]
 
     return (
@@ -92,10 +157,10 @@ function StudentDashboard({ child }: { child: StudentSummary }) {
             />
 
             <section aria-label="Menu utama" className="grid grid-cols-2 gap-3.5">
-                <ModuleCard to="/akademik" label="Nilai" meta={newGradeCount > 0 ? `${newGradeCount} nilai baru` : 'Lihat nilai'} icon={<BookOpen className="size-6" />} className="bg-pastel-violet" iconClassName="text-pastel-violet-fg" metaClassName="text-[#44544A]" />
-                <ModuleCard to="/absensi" label="Absensi" meta={`Kehadiran ${dummyStudent.attendanceRate}%`} icon={<CalendarCheck className="size-6" />} className="bg-pastel-sky" iconClassName="text-pastel-sky-fg" metaClassName="text-[#1F4A8A]" />
+                <ModuleCard to="/akademik" label="Nilai" meta={summary && summary.newGradesCount > 0 ? `${summary.newGradesCount} nilai baru` : 'Lihat nilai'} icon={<BookOpen className="size-6" />} className="bg-pastel-violet" iconClassName="text-pastel-violet-fg" metaClassName="text-[#44544A]" />
+                <ModuleCard to="/absensi" label="Absensi" meta={summary ? `Kehadiran ${summary.attendanceRate}%` : 'Lihat absensi'} icon={<CalendarCheck className="size-6" />} className="bg-pastel-sky" iconClassName="text-pastel-sky-fg" metaClassName="text-[#1F4A8A]" />
                 {features.payments ? <ModuleCard to="/pembayaran" label="Pembayaran" meta={`${dummyBills.length} tagihan`} icon={<Wallet className="size-6" />} className="bg-pastel-coral" iconClassName="text-[#C2413A]" metaClassName="text-[#7A2E29]" /> : null}
-                <ModuleCard to="/akademik?tab=kelas" label="Jadwal" meta={`${dummyTodayLessonCount} mapel hari ini`} icon={<Clock3 className="size-6" />} className={cn('bg-pastel-sun', !features.payments && 'col-span-2 min-h-[120px]')} iconClassName="text-[#9A6400]" metaClassName="text-[#6B4A00]" />
+                <ModuleCard to="/akademik?tab=kelas" label="Jadwal" meta={summary ? `${summary.today.lessons.length} mapel hari ini` : 'Lihat jadwal'} icon={<Clock3 className="size-6" />} className={cn('bg-pastel-sun', !features.payments && 'col-span-2 min-h-[120px]')} iconClassName="text-[#9A6400]" metaClassName="text-[#6B4A00]" />
             </section>
 
             <section aria-labelledby="jadwal-h" className="flex flex-col gap-3">
@@ -103,31 +168,13 @@ function StudentDashboard({ child }: { child: StudentSummary }) {
                     <h2 id="jadwal-h" className="font-display text-xl font-semibold">Jadwal Hari Ini</h2>
                     <Link to="/akademik?tab=kelas" className="flex min-h-11 items-center text-sm font-bold text-subtle">Lihat semua</Link>
                 </div>
-                <Link to="/akademik?tab=kelas" className="flex items-center gap-3.5 rounded-3xl bg-card p-3.5 shadow-soft">
-                    <span aria-hidden="true" className="flex size-[72px] shrink-0 items-center justify-center rounded-[18px] bg-pastel-violet font-display text-2xl font-bold text-pastel-violet-fg">
-                        {dummyCurrentLesson.symbol}
-                    </span>
-                    <span className="flex min-w-0 flex-grow flex-col gap-1">
-                        <span className="flex items-center gap-1.5 text-xs font-extrabold text-[#0F7A73]">
-                            <span aria-hidden="true" className="size-2 rounded-full bg-[#0F7A73]" />
-                            Sedang berlangsung
-                        </span>
-                        <span className="text-base font-extrabold">{dummyCurrentLesson.subject}</span>
-                        <span className="text-[13px] text-subtle">{dummyCurrentLesson.time} · {dummyCurrentLesson.room}</span>
-                        <span aria-hidden="true" className="mt-1 h-2 overflow-hidden rounded-full bg-muted">
-                            <span className="block h-full rounded-full bg-[#45BFB4]" style={{ width: `${dummyCurrentLesson.progress}%` }} />
-                        </span>
-                    </span>
-                </Link>
-                <div className="rounded-3xl bg-card px-3.5 py-1.5 shadow-soft">
-                    {dummyNextLessons.map((lesson) => (
-                        <div key={lesson.time} className="flex items-center gap-3 py-2.5">
-                            <span className="w-16 text-[13px] font-extrabold text-subtle">{lesson.time}</span>
-                            <span className="flex-grow text-[15px] font-bold">{lesson.subject}</span>
-                            <span className="text-[13px] text-subtle">{lesson.room}</span>
-                        </div>
-                    ))}
-                </div>
+                {summary ? (
+                    <TodaySchedule lessons={summary.today.lessons} isSchoolDay={summary.today.isSchoolDay} />
+                ) : dashboard.status === 'error' ? (
+                    <p className="rounded-3xl bg-card p-4 text-sm text-subtle shadow-soft">Jadwal hari ini belum dapat dimuat.</p>
+                ) : (
+                    <Skeleton className="h-[100px] rounded-3xl" />
+                )}
             </section>
 
             {features.payments ? (

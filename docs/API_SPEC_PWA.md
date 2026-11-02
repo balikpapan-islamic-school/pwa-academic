@@ -561,7 +561,16 @@ Response `200`:
 - Item pertama tampil sebagai kartu besar (pakai `cover_image_url`; jika `null` frontend memakai ilustrasi bawaan).
 - Berita sebaiknya bisa difilter per sekolah/unit milik peserta didik; untuk wali belum terhubung tampilkan berita umum yayasan.
 
-**`GET /news/{newsId}`** — detail berita (`content` dalam HTML terbatas/Markdown) untuk tombol "Lihat semua" dan ketukan kartu. Halaman detail belum dibuat di frontend.
+**`GET /news/{newsId}`** · Auth: ya · Halaman: Detail Berita (`/berita/:newsId`, dibuka dari ketukan kartu berita)
+
+`data` sama dengan item `GET /news`, ditambah `content`:
+
+```json
+{ "message": "OK", "data": { "id": "01...", "category": "pengumuman", "title": "...", "summary": "...", "cover_image_url": null, "author": "Tata Usaha", "published_at": "2026-10-28T08:00:00+08:00", "content": "<p>...</p>" } }
+```
+
+- `content` berupa **HTML terbatas**: `p`, `h2`–`h4`, `ul`/`ol`/`li`, `strong`/`b`, `em`/`i`, `u`, `br`, `blockquote`, `a` (http/https/mailto/tel). Tag lain hanya ditampilkan isinya; `script`, `iframe`, `style`, dan sejenisnya dibuang. Teks tanpa tag ditampilkan per paragraf (dipisah baris kosong). Markdown **tidak** diproses.
+- Berita tidak ada / tidak boleh dilihat → `404`.
 
 ### 5.3 Banner SPMB
 
@@ -617,8 +626,7 @@ Response `200`:
       "subject": {
         "id": "01...",
         "name": "Matematika Wajib",
-        "teacher_name": "Pak Dimas R.",
-        "passing_score": 75
+        "teacher_name": "Pak Dimas R."
       },
       "assessment": "Ulangan Harian 2",
       "score": 96,
@@ -633,8 +641,7 @@ Response `200`:
       "subject": {
         "id": "01...",
         "name": "Kimia",
-        "teacher_name": "Pak Hendra P.",
-        "passing_score": 75
+        "teacher_name": "Pak Hendra P."
       },
       "assessment": "Praktikum Laju Reaksi",
       "score": null,
@@ -660,10 +667,17 @@ Response `200`:
 | `score` | wajib jika `type = score`, `null` jika `file` |
 | `note` | keterangan guru, opsional pada kedua jenis |
 | `file` | wajib jika `type = file` (lihat [1.7](#17-file)) |
-| `subject.passing_score` | KKM mapel. Frontend menandai skor di bawahnya ("< KKM 75") |
-| `published_by` | nama guru/penerbit untuk "Diterbitkan oleh ..." |
+| `published_by` | sama dengan guru penilaian; **tidak dipakai** frontend (tidak ada proses "terbit") |
 
 > **Sementara:** backend belum punya status draft/terbit nilai. `published_at` diisi **waktu nilai diinput guru**, dan semua nilai yang sudah diinput dianggap terbit. Label "Baru" ([6.3](#63-label-baru)) ikut memakai waktu input ini.
+
+> **Yang ditampilkan frontend menyesuaikan data backend saat ini:**
+> - Tidak ada teks "Terbit"/"Diterbitkan oleh"; tanggal ditampilkan apa adanya (waktu input).
+> - `score` boleh `null` (penilaian file / hanya keterangan) dan tidak ditampilkan sebagai 0. Baris tanpa `score`, `file`, dan `note` (belum diisi guru) disembunyikan.
+> - File nilai bisa PDF atau JPG. PDF dibuka di penampil aplikasi, selain itu dibuka langsung di browser. Nama file hasil unggah acak, jadi frontend menampilkan "Lembar penilaian" + jenis & ukuran file; `page_count` saat ini selalu `null`.
+> - `score` tetap ditampilkan bila entry `file` juga punya angka.
+
+> KKM belum tersedia di backend, jadi frontend tidak menampilkan label KKM. Bila nanti ditambahkan, kirim sebagai `subject.passing_score`.
 
 Urutan: `published_at` terbaru dulu. Daftar mapel di mode Per Mapel mengikuti urutan `GET /subjects`.
 

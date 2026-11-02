@@ -205,18 +205,20 @@ Tahap ini akan memberi bentuk nyata pada produk sebelum kita masuk ke integrasi 
 
 ## Update Terbaru
 
-- Checklist implementasi API yang sedang dikerjakan:
-  - [x] `POST /auth/login`
-  - [x] `GET /auth/me`
-  - [x] `POST /auth/logout`
-  - [ ] `GET /me` untuk halaman profil siswa
-  - [ ] endpoint linked students / wali siswa
-  - [ ] endpoint dashboard akademik
-  - [ ] endpoint jadwal / KBM
-  - [ ] endpoint absensi
-  - [ ] endpoint nilai
-  - [ ] endpoint rapor
-  - [ ] endpoint notifikasi
+- Checklist implementasi API (mengikuti `docs/API_SPEC_PWA.md`):
+  - [x] `POST /auth/login`, `POST /auth/google`, `GET /auth/me`, `PATCH /auth/me`, `PUT /auth/password`, `POST /auth/logout`
+  - [x] `GET /children`, `GET /children/requests`, `POST /children/requests`
+  - [x] `GET /me?student_id=` untuk halaman profil peserta didik
+  - [x] `GET /dashboard`, `GET /news` (Beranda)
+  - [x] `GET /semesters`, `GET /grades/entries`, `GET /subjects` (Akademik → Nilai & Mapel)
+  - [x] `GET /classroom`, `GET /classroom/students`, `GET /schedule` (Akademik → Kelas)
+  - [x] `GET /attendance/today`, `GET /attendance/summary`, `GET /attendance/calendar`, `GET /attendance` (Absensi)
+  - [x] `GET`, `POST`, `DELETE /attendance/leave-requests` (Pengajuan Izin)
+  - [x] `GET`, `PATCH /me/preferences` (sakelar Notifikasi)
+  - [x] `GET /me/guardians` (halaman `/profil/wali`)
+  - [x] `GET /notifications`, `POST /notifications/{id}/read`, `POST /notifications/read-all`
+  - [x] `GET /news/{id}` (halaman `/berita/:newsId`)
+  - [ ] Pembayaran — ditunda (`features.payments = false`)
 - Beranda sedang diarahkan ke pola `super app home`, bukan dashboard analitik.
 - Struktur home yang dipakai saat ini:
   - hero personal siswa aktif
@@ -236,5 +238,5 @@ Tahap ini akan memberi bentuk nyata pada produk sebelum kita masuk ke integrasi 
 - Login sekarang memakai `username` dan `password`, menyimpan bearer token, dan melakukan bootstrap session dari token yang tersimpan.
 - Route middleware sudah disesuaikan agar redirect ke `/login` dan alert session bekerja saat token tidak valid atau sesi berakhir.
 - Error login `422` sekarang sudah ditampilkan lebih spesifik di level field `username` dan `password`.
-- Data akademik selain auth saat ini masih menggunakan fallback mock sampai endpoint backend terkait tersedia.
+- Mode `VITE_DATA_SOURCE=api` kini memakai API untuk semua halaman; mode `mock` memakai data contoh di `src/lib/dummy-ui.ts` yang bentuknya mengikuti kontrak API. Halaman Rapor lama tetap memakai data contoh karena `/reports` sudah dihapus dari backend.
 - Untuk sementara, pengerjaan dashboard dianggap cukup dan iterasi berikutnya dapat berpindah ke section lain bila dibutuhkan.

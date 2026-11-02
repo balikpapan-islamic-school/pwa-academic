@@ -1,15 +1,19 @@
-import { useState } from 'react'
+import { ReactNode, useState } from 'react'
 import { CalendarX2, ChevronLeft, ChevronRight, FilePlus2 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 import { HeroCard } from '@/components/kit/hero-card'
 import { ScreenHeader } from '@/components/kit/screen-header'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
-import { dummyAttendanceHistory, dummyAttendanceSpecialDays, dummyAttendanceSummary, dummyAttendanceToday, dummyLeaveRequests, dummyStudent, DummyLeaveRequest, LeaveStatus } from '@/lib/dummy-ui'
-import { formatDateRange, formatLongDate, monthNames } from '@/lib/format'
+import { Skeleton } from '@/components/ui/skeleton'
+import { useStudent } from '@/contexts/StudentContext'
+import { useApiData } from '@/hooks/use-api-data'
+import { dayNames, formatClock, formatDateRange, formatLongDate, monthNames, parseIsoDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
+import { academicService } from '@/services'
+import { AttendanceRecord, AttendanceStatus, LeaveRequest, LeaveStatus } from '@/types/academic'
 
-type DayStatus = 'hadir' | 'izin' | 'sakit' | 'alfa'
+type DayStatus = AttendanceStatus
 
 const statusLabels: Record<DayStatus, string> = { hadir: 'Hadir', izin: 'Izin', sakit: 'Sakit', alfa: 'Alpa' }
 const statusOrder: DayStatus[] = ['hadir', 'izin', 'sakit', 'alfa']
@@ -21,34 +25,26 @@ const statusStyles: Record<DayStatus, { tile: string, value: string, label: stri
     alfa: { tile: 'bg-pastel-coral', value: 'text-pastel-coral-fg', label: 'text-[#7A2E29]', cell: 'bg-[#F2A49E] text-[#5C1A15]', legend: 'bg-[#F2A49E]', badge: 'bg-pastel-coral text-[#7A2E29]' },
 }
 
-const historyIconStyles = {
-    Hadir: 'bg-pastel-mint text-pastel-mint-fg',
-    Sakit: 'bg-pastel-sky text-pastel-sky-fg',
-}
-
 const weekdayLabels = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min']
 
-function dateKey(year: number, month: number, day: number) {
-    return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+function SectionMessage({ children }: { children: ReactNode }) {
+    return <p className="rounded-[20px] bg-card p-4 text-sm text-subtle">{children}</p>
 }
 
-// Data dummy: hari sekolah yang sudah lewat dianggap hadir, kecuali yang tercatat khusus.
-function dummyStatusFor(date: Date, today: Date): DayStatus | null {
-    const isWeekend = date.getDay() === 0 || date.getDay() === 6
-    if (isWeekend || date > today) {
-        return null
-    }
-
-    return dummyAttendanceSpecialDays[dateKey(date.getFullYear(), date.getMonth(), date.getDate())] ?? 'hadir'
-}
-
-function MonthCalendar() {
-    const today = new Date()
-    const [month, setMonth] = useState(() => new Date(2026, 9, 1))
+function MonthCalendar({ studentId }: { studentId: string }) {
+    const [month, setMonth] = useState(() => {
+        const today = new Date()
+        return new Date(today.getFullYear(), today.getMonth(), 1)
+    })
     const year = month.getFullYear()
     const monthIndex = month.getMonth()
+    const monthKey = `${year}-${String(monthIndex + 1).padStart(2, '0')}`
     const daysInMonth = new Date(year, monthIndex + 1, 0).getDate()
     const leadingBlanks = (new Date(year, monthIndex, 1).getDay() + 6) % 7
+    const calendar = useApiData(() => academicService.getAttendanceCalendar(studentId, monthKey), [studentId, monthKey])
+    // Hanya tanggal yang punya catatan dikirim backend; sisanya (akhir pekan, belum tercatat) tampil abu-abu.
+    const statusByDate = new Map(calendar.data?.days.map((day) => [day.date, day.status]))
+    const holidayByDate = new Map(calendar.data?.holidays.map((holiday) => [holiday.date, holiday.name]))
 
     return (
         <section aria-labelledby="cal-h" className="rounded-3xl bg-card p-4">
@@ -61,25 +57,29 @@ function MonthCalendar() {
                     <ChevronRight className="size-5" strokeWidth={2.4} />
                 </button>
             </div>
-            <div className="grid grid-cols-7 gap-1 text-center">
+            <div aria-busy={calendar.status === 'loading'} className={cn('grid grid-cols-7 gap-1 text-center transition-opacity', calendar.status === 'loading' && 'opacity-50')}>
                 {weekdayLabels.map((label) => (
                     <span key={label} className="py-1 text-xs font-extrabold text-subtle">{label}</span>
                 ))}
                 {Array.from({ length: leadingBlanks }, (_, index) => <span key={`blank-${index}`} />)}
                 {Array.from({ length: daysInMonth }, (_, index) => {
                     const day = index + 1
-                    const status = dummyStatusFor(new Date(year, monthIndex, day), today)
+                    const key = `${monthKey}-${String(day).padStart(2, '0')}`
+                    const status = statusByDate.get(key)
+                    const holiday = holidayByDate.get(key)
 
                     return (
                         <span
                             key={day}
-                            aria-label={`${day} ${monthNames[monthIndex]}${status ? `, ${statusLabels[status]}` : ''}`}
-                            className={cn('flex h-[38px] items-center justify-center rounded-xl text-sm font-extrabold', status ? statusStyles[status].cell : 'text-[#849087]')}>
+                            title={holiday}
+                            aria-label={`${day} ${monthNames[monthIndex]}${status ? `, ${statusLabels[status]}` : holiday ? `, ${holiday}` : ''}`}
+                            className={cn('flex h-[38px] items-center justify-center rounded-xl text-sm font-extrabold', status ? statusStyles[status].cell : holiday ? 'bg-muted text-[#849087]' : 'text-[#849087]')}>
                             {day}
                         </span>
                     )
                 })}
             </div>
+            {calendar.status === 'error' ? <p className="mt-2 text-center text-[13px] text-subtle">Kalender belum dapat dimuat.</p> : null}
             <div className="mt-3.5 flex flex-wrap gap-3 text-xs font-bold text-[#44544A]">
                 {statusOrder.map((status) => (
                     <span key={status} className="flex items-center gap-1.5">
@@ -98,23 +98,36 @@ const leaveStatusLabels: Record<LeaveStatus, { label: string, className: string 
     ditolak: { label: 'Ditolak', className: 'bg-pastel-coral text-[#7A2E29]' },
 }
 
-function LeaveRequests() {
-    const [requests, setRequests] = useState(dummyLeaveRequests)
-    const [pendingCancel, setPendingCancel] = useState<DummyLeaveRequest | null>(null)
+function LeaveRequests({ studentId }: { studentId: string }) {
+    const leaveRequests = useApiData(() => academicService.getLeaveRequests(studentId), [studentId])
+    const requests = leaveRequests.data?.items ?? []
+    const [pendingCancel, setPendingCancel] = useState<LeaveRequest | null>(null)
 
-    function cancelRequest() {
+    async function cancelRequest() {
         if (!pendingCancel) {
             return
         }
-        setRequests((current) => current.filter((item) => item.id !== pendingCancel.id))
-        toast.success('Pengajuan izin dibatalkan')
+
+        try {
+            await academicService.cancelLeaveRequest(pendingCancel.id)
+            leaveRequests.setData((current) => ({ ...current, items: current.items.filter((item) => item.id !== pendingCancel.id) }))
+            toast.success('Pengajuan izin dibatalkan.')
+        } catch (caughtError) {
+            toast.error(caughtError instanceof Error ? caughtError.message : 'Pengajuan izin gagal dibatalkan.')
+            // 409: status sudah berubah di sisi wali kelas, muat ulang agar kartu menampilkan status terbaru.
+            leaveRequests.reload()
+        }
     }
 
     return (
         <section aria-labelledby="izin-h" className="flex flex-col gap-2.5">
             <h2 id="izin-h" className="font-display text-[19px] font-semibold">Pengajuan Izin</h2>
-            {requests.length === 0 ? (
-                <p className="rounded-[20px] bg-card p-4 text-sm text-subtle">Belum ada pengajuan izin.</p>
+            {leaveRequests.status === 'loading' ? (
+                <Skeleton className="h-[92px] rounded-[20px]" />
+            ) : leaveRequests.status === 'error' ? (
+                <SectionMessage>Pengajuan izin belum dapat dimuat.</SectionMessage>
+            ) : requests.length === 0 ? (
+                <SectionMessage>Belum ada pengajuan izin.</SectionMessage>
             ) : requests.map((request) => (
                 <div key={request.id} className="flex flex-col gap-2 rounded-[20px] bg-card p-3.5">
                     <div className="flex items-start justify-between gap-3">
@@ -162,8 +175,103 @@ function LeaveRequests() {
     )
 }
 
+// "Masuk 06.48 · Pulang 15.05" untuk hadir, selain itu keterangan dari sekolah.
+function historyDetail(record: AttendanceRecord) {
+    if (record.checkInAt || record.checkOutAt) {
+        return [record.checkInAt ? `Masuk ${formatClock(record.checkInAt)}` : null, record.checkOutAt ? `Pulang ${formatClock(record.checkOutAt)}` : null].filter(Boolean).join(' · ')
+    }
+
+    return record.note ?? (record.attachment ? 'Lampiran tersedia' : statusLabels[record.status])
+}
+
+function AttendanceHistory({ studentId }: { studentId: string }) {
+    const history = useApiData(() => academicService.getAttendanceHistory(studentId, { perPage: 3 }), [studentId])
+
+    return (
+        <section aria-labelledby="hist-h" className="flex flex-col gap-2.5">
+            <h2 id="hist-h" className="font-display text-[19px] font-semibold">Riwayat Terbaru</h2>
+            {history.status === 'loading' ? (
+                <Skeleton className="h-[74px] rounded-[20px]" />
+            ) : history.status === 'error' ? (
+                <SectionMessage>Riwayat absensi belum dapat dimuat.</SectionMessage>
+            ) : history.data?.items.length === 0 ? (
+                <SectionMessage>Belum ada catatan absensi.</SectionMessage>
+            ) : history.data?.items.map((item) => {
+                const date = parseIsoDate(item.date)
+                const styles = statusStyles[item.status]
+
+                return (
+                    <div key={item.id} className="flex items-center gap-3 rounded-[20px] bg-card p-3.5">
+                        <span aria-hidden="true" className={cn('flex size-[46px] shrink-0 items-center justify-center rounded-[14px] font-display text-[17px] font-bold', styles.badge)}>
+                            {date.getDate()}
+                        </span>
+                        <span className="flex min-w-0 flex-grow flex-col gap-0.5">
+                            <span className="text-[15px] font-extrabold">{dayNames[date.getDay()]}, {date.getDate()} {monthNames[date.getMonth()].slice(0, 3)}</span>
+                            <span className="truncate text-[13px] text-subtle">{historyDetail(item)}</span>
+                        </span>
+                        <span className={cn('rounded-full px-2.5 py-1.5 text-xs font-extrabold', styles.badge)}>{statusLabels[item.status]}</span>
+                    </div>
+                )
+            })}
+        </section>
+    )
+}
+
+function TodayCard({ studentId, nickname }: { studentId: string, nickname: string }) {
+    const attendance = useApiData(() => academicService.getAttendanceToday(studentId), [studentId])
+    const today = attendance.data
+
+    const headline = attendance.status === 'loading'
+        ? 'Memuat absensi…'
+        : attendance.status === 'error'
+            ? 'Absensi hari ini belum dapat dimuat'
+            : today?.status
+                ? `${nickname} ${statusLabels[today.status].toLowerCase()} hari ini`
+                : today && !today.isSchoolDay ? 'Hari ini bukan hari sekolah' : 'Belum ada catatan hari ini'
+
+    return (
+        <HeroCard tone="ink">
+            <p className="text-[13px] font-bold text-[#C8D8CD]">{formatLongDate(today ? parseIsoDate(today.date) : new Date())}</p>
+            <div className="mt-1.5 flex items-center gap-2.5">
+                <p className="font-display text-[22px] font-semibold">{headline}</p>
+                {today?.punctuality ? (
+                    <span className={cn('shrink-0 rounded-full px-2.5 py-1 text-xs font-extrabold', today.punctuality === 'terlambat' ? 'bg-pastel-sun text-[#6B4A00]' : 'bg-pastel-mint text-pastel-mint-fg')}>
+                        {today.punctuality === 'terlambat' ? 'Terlambat' : 'Tepat waktu'}
+                    </span>
+                ) : null}
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-2.5">
+                <div className="rounded-2xl bg-white/10 p-3">
+                    <p className="text-xs font-bold text-[#C8D8CD]">Jam Masuk</p>
+                    <p className="mt-0.5 font-display text-xl font-semibold">{today?.checkInAt ? formatClock(today.checkInAt) : '--.--'}</p>
+                </div>
+                <div className="rounded-2xl bg-white/10 p-3">
+                    <p className="text-xs font-bold text-[#C8D8CD]">Jam Pulang</p>
+                    <p className="mt-0.5 font-display text-xl font-semibold">{today?.checkOutAt ? formatClock(today.checkOutAt) : '--.--'}</p>
+                </div>
+            </div>
+            <p className="mt-3 text-xs text-[#C8D8CD]">Kehadiran dicatat oleh guru di sekolah.</p>
+        </HeroCard>
+    )
+}
+
+function SemesterRecap({ studentId }: { studentId: string }) {
+    const summary = useApiData(() => academicService.getAttendanceSummary(studentId), [studentId])
+
+    return (
+        <section aria-label="Rekap semester" aria-busy={summary.status === 'loading'} className="grid grid-cols-4 gap-2">
+            {statusOrder.map((status) => (
+                <div key={status} className={cn('rounded-[18px] px-1 py-3 text-center', statusStyles[status].tile)}>
+                    <p className={cn('font-display text-[22px] font-bold', statusStyles[status].value)}>{summary.data ? summary.data[status] : '–'}</p>
+                    <p className={cn('text-xs font-extrabold', statusStyles[status].label)}>{statusLabels[status]}</p>
+                </div>
+            ))}
+        </section>
+    )
+}
+
 export default function Absensi() {
-    const today = dummyAttendanceToday
+    const { activeStudent } = useStudent()
 
     return (
         <div className="flex flex-col gap-[18px]">
@@ -183,57 +291,18 @@ export default function Absensi() {
                 )}
             />
 
-            <HeroCard tone="ink">
-                <p className="text-[13px] font-bold text-[#C8D8CD]">{formatLongDate(new Date())}</p>
-                <div className="mt-1.5 flex items-center gap-2.5">
-                    <p className="font-display text-[22px] font-semibold">
-                        {today.status ? `${dummyStudent.nickname} ${statusLabels[today.status].toLowerCase()} hari ini` : 'Belum ada catatan hari ini'}
-                    </p>
-                    {today.punctuality ? (
-                        <span className="rounded-full bg-pastel-mint px-2.5 py-1 text-xs font-extrabold text-pastel-mint-fg">{today.punctuality}</span>
-                    ) : null}
+            {activeStudent ? (
+                // `key` mereset bulan kalender dan semua data saat anak aktif diganti.
+                <div key={activeStudent.id} className="flex flex-col gap-[18px]">
+                    <TodayCard studentId={activeStudent.id} nickname={activeStudent.nickname} />
+                    <SemesterRecap studentId={activeStudent.id} />
+                    <MonthCalendar studentId={activeStudent.id} />
+                    <LeaveRequests studentId={activeStudent.id} />
+                    <AttendanceHistory studentId={activeStudent.id} />
                 </div>
-                <div className="mt-4 grid grid-cols-2 gap-2.5">
-                    <div className="rounded-2xl bg-white/10 p-3">
-                        <p className="text-xs font-bold text-[#C8D8CD]">Jam Masuk</p>
-                        <p className="mt-0.5 font-display text-xl font-semibold">{today.checkInAt ?? '--.--'}</p>
-                    </div>
-                    <div className="rounded-2xl bg-white/10 p-3">
-                        <p className="text-xs font-bold text-[#C8D8CD]">Jam Pulang</p>
-                        <p className="mt-0.5 font-display text-xl font-semibold">{today.checkOutAt ?? '--.--'}</p>
-                    </div>
-                </div>
-                <p className="mt-3 text-xs text-[#C8D8CD]">Kehadiran dicatat oleh guru di sekolah.</p>
-            </HeroCard>
-
-            <section aria-label="Rekap semester" className="grid grid-cols-4 gap-2">
-                {statusOrder.map((status) => (
-                    <div key={status} className={cn('rounded-[18px] px-1 py-3 text-center', statusStyles[status].tile)}>
-                        <p className={cn('font-display text-[22px] font-bold', statusStyles[status].value)}>{dummyAttendanceSummary[status]}</p>
-                        <p className={cn('text-xs font-extrabold', statusStyles[status].label)}>{statusLabels[status]}</p>
-                    </div>
-                ))}
-            </section>
-
-            <MonthCalendar />
-
-            <LeaveRequests />
-
-            <section aria-labelledby="hist-h" className="flex flex-col gap-2.5">
-                <h2 id="hist-h" className="font-display text-[19px] font-semibold">Riwayat Terbaru</h2>
-                {dummyAttendanceHistory.map((item) => (
-                    <div key={item.day} className="flex items-center gap-3 rounded-[20px] bg-card p-3.5">
-                        <span aria-hidden="true" className={cn('flex size-[46px] shrink-0 items-center justify-center rounded-[14px] font-display text-[17px] font-bold', historyIconStyles[item.status])}>
-                            {item.day}
-                        </span>
-                        <span className="flex flex-grow flex-col gap-0.5">
-                            <span className="text-[15px] font-extrabold">{item.title}</span>
-                            <span className="text-[13px] text-subtle">{item.detail}</span>
-                        </span>
-                        <span className={cn('rounded-full px-2.5 py-1.5 text-xs font-extrabold', item.status === 'Hadir' ? statusStyles.hadir.badge : statusStyles.sakit.badge)}>{item.status}</span>
-                    </div>
-                ))}
-            </section>
+            ) : (
+                <Skeleton className="h-[200px] rounded-[28px]" />
+            )}
         </div>
     )
 }

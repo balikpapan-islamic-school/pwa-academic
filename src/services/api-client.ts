@@ -48,15 +48,18 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     const url = `${API_BASE_URL}${path.startsWith('/') ? path : `/${path}`}`
     const accessToken = getAccessToken()
 
+    // FormData (multipart, mis. lampiran izin) dikirim apa adanya agar browser mengisi boundary sendiri.
+    const isFormData = options.body instanceof FormData
+
     const response = await fetch(url, {
         method: options.method ?? 'GET',
         headers: {
             Accept: 'application/json',
-            'Content-Type': 'application/json',
+            ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
             ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
             ...options.headers,
         },
-        body: options.body ? JSON.stringify(options.body) : undefined,
+        body: isFormData ? options.body as FormData : options.body ? JSON.stringify(options.body) : undefined,
     })
 
     if (!response.ok) {
@@ -85,6 +88,20 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     }
 
     return response.json() as Promise<T>
+}
+
+// `{ student_id: 'x', page: 2, category: undefined }` -> `?student_id=x&page=2`; nilai kosong diabaikan.
+export function buildQuery(params: Record<string, string | number | null | undefined>) {
+    const search = new URLSearchParams()
+
+    for (const [key, value] of Object.entries(params)) {
+        if (value !== undefined && value !== null && value !== '') {
+            search.set(key, String(value))
+        }
+    }
+
+    const query = search.toString()
+    return query ? `?${query}` : ''
 }
 
 export function getApiBaseUrl() {

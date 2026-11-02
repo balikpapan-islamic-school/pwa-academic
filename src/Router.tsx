@@ -6,12 +6,15 @@ import { useAuth } from './contexts/AuthContext'
 import { useHasLinkedStudent } from './hooks/use-has-linked-student'
 import Absensi from './pages/Absensi'
 import AjukanIzin from './pages/AjukanIzin'
+import BeritaDetail from './pages/BeritaDetail'
 import Akademik from './pages/Akademik'
 import Dashboard from './pages/Dashboard'
+import DataWali from './pages/DataWali'
 import EditProfil from './pages/EditProfil'
 import HubungkanAnak from './pages/HubungkanAnak'
 import KataSandi from './pages/KataSandi'
 import Login from './pages/Login'
+import NilaiMapel from './pages/NilaiMapel'
 import NotMatch from './pages/NotMatch'
 import Notifikasi from './pages/Notifikasi'
 import Onboarding, { ONBOARDING_STORAGE_KEY } from './pages/Onboarding'
@@ -65,8 +68,12 @@ export default function Router() {
             <Route element={<ProtectedRoute />}>
                 {/* Alur fokus tanpa navigasi bawah. */}
                 <Route path="/hubungkan-anak" element={<HubungkanAnak />} />
+                {/* Berita juga tampil untuk wali yang belum terhubung ke peserta didik. */}
+                <Route path="/berita/:newsId" element={<BeritaDetail />} />
                 <Route element={<RequireLinkedStudent />}>
                     <Route path="/absensi/izin" element={<AjukanIzin />} />
+                    <Route path="/akademik/nilai/:subjectId" element={<NilaiMapel />} />
+                    <Route path="/profil/wali" element={<DataWali />} />
                 </Route>
                 <Route path="/profil/edit" element={<EditProfil />} />
                 <Route path="/profil/kata-sandi" element={<KataSandi />} />

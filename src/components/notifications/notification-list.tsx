@@ -1,21 +1,22 @@
 import { Link } from 'react-router-dom'
 import { BellRing } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
+import { formatRelativeTime } from '@/lib/format'
 import { NotificationItem } from '@/types/academic'
 import { cn } from '@/lib/utils'
 
 type NotificationListProps = {
     items: NotificationItem[]
-    onRead: (notificationId: string) => void
+    onOpen: (item: NotificationItem) => void
 }
 
-export function NotificationList({ items, onRead }: NotificationListProps) {
+export function NotificationList({ items, onOpen }: NotificationListProps) {
     return (
         <div className="space-y-3">
             {items.map((item) => (
                 <Card key={item.id} className={cn(!item.read && 'border-primary/40 bg-primary/5')}>
                     <CardContent className="py-5">
-                        <Link to={item.href} className="block space-y-3" onClick={() => onRead(item.id)}>
+                        <Link to={item.href} className="block space-y-3" onClick={() => onOpen(item)}>
                             <div className="flex items-start justify-between gap-3">
                                 <div className="flex items-start gap-3">
                                     <div className="rounded-xl bg-muted p-2">
@@ -28,7 +29,7 @@ export function NotificationList({ items, onRead }: NotificationListProps) {
                                 </div>
                                 {!item.read ? <span className="mt-1 size-2.5 rounded-full bg-primary" /> : null}
                             </div>
-                            <p className="text-xs text-muted-foreground">{item.time}</p>
+                            <p className="text-xs text-muted-foreground">{formatRelativeTime(item.createdAt)}</p>
                         </Link>
                     </CardContent>
                 </Card>

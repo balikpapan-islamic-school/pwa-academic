@@ -1,13 +1,18 @@
 import { ChangeEvent, FormEvent, useRef, useState } from 'react'
 import { ArrowRight, FileText, Info, Paperclip, Send, X } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { toast } from 'sonner'
 import { FieldShell } from '@/components/kit/field-shell'
 import { FocusPage, focusCardClassName, FormField, SubmitButton, SuccessCard } from '@/components/kit/focus-page'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { useStudent } from '@/contexts/StudentContext'
+import { useApiData } from '@/hooks/use-api-data'
 import { useGoBack } from '@/hooks/use-go-back'
-import { dummyStudent, fakeRequest, LeaveType } from '@/lib/dummy-ui'
 import { formatDateRange, formatFileSize, parseIsoDate, toIsoDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
+import { academicService } from '@/services'
+import { ApiError } from '@/services/api-client'
+import { LeaveType } from '@/types/academic'
 
 const REASON_MAX = 500
 const ATTACHMENT_MAX_BYTES = 5 * 1024 * 1024
@@ -29,10 +34,28 @@ function countSchoolDays(start: string, end: string) {
     return count
 }
 
+function capitalize(text: string) {
+    return text.charAt(0).toUpperCase() + text.slice(1)
+}
+
 type Errors = { type?: string, startDate?: string, endDate?: string, reason?: string, attachment?: string }
+
+// Key error validasi backend (snake_case) -> field form.
+const apiErrorFields: Record<string, keyof Errors> = {
+    type: 'type',
+    start_date: 'startDate',
+    end_date: 'endDate',
+    reason: 'reason',
+    attachment: 'attachment',
+}
 
 export default function AjukanIzin() {
     const goBack = useGoBack('/absensi')
+    const { activeStudent } = useStudent()
+    const studentId = activeStudent?.id ?? ''
+    // Hanya untuk teks "diperiksa oleh ..."; bila gagal dimuat cukup sebut "wali kelas".
+    const classroom = useApiData(studentId ? () => academicService.getClassroom(studentId) : null, [studentId])
+    const homeroomTeacher = classroom.data?.homeroomTeacher ?? 'wali kelas'
     const today = toIsoDate(new Date())
     const fileInputRef = useRef<HTMLInputElement>(null)
     const [type, setType] = useState<LeaveType | null>(null)
@@ -109,10 +132,35 @@ export default function AjukanIzin() {
     }
 
     async function send() {
+        if (!type || !studentId) {
+            return
+        }
+
         setIsSending(true)
-        await fakeRequest()
-        setIsSending(false)
-        setIsSent(true)
+
+        try {
+            await academicService.createLeaveRequest({ studentId, type, startDate, endDate, reason: reason.trim(), attachment })
+            setIsSent(true)
+        } catch (caughtError) {
+            if (caughtError instanceof ApiError && caughtError.errors) {
+                const nextErrors: Errors = {}
+                for (const [key, messages] of Object.entries(caughtError.errors)) {
+                    const field = apiErrorFields[key]
+                    if (field && messages[0]) {
+                        nextErrors[field] = messages[0]
+                    }
+                }
+                setErrors(nextErrors)
+                if (Object.keys(nextErrors).length === 0) {
+                    toast.error(caughtError.message)
+                }
+            } else {
+                // 409 (tanggal bertumpuk), 403, dan galat lain: pesan backend sudah ramah untuk orang tua.
+                toast.error('Pengajuan izin gagal dikirim.', { description: caughtError instanceof Error ? caughtError.message : undefined })
+            }
+        } finally {
+            setIsSending(false)
+        }
     }
 
     const summaryRows = [
@@ -128,8 +176,8 @@ export default function AjukanIzin() {
 
     if (isSent) {
         return (
-            <FocusPage title="Ajukan Izin" subtitle={`Untuk ${dummyStudent.name}`}>
-                <SuccessCard title="Pengajuan terkirim!" description={`${dummyStudent.homeroomTeacher} akan memeriksa pengajuan ini. Anda akan mendapat notifikasi setelah diproses.`}>
+            <FocusPage title="Ajukan Izin" subtitle={activeStudent ? `Untuk ${activeStudent.name}` : undefined}>
+                <SuccessCard title="Pengajuan terkirim!" description={`${capitalize(homeroomTeacher)} akan memeriksa pengajuan ini. Anda akan mendapat notifikasi setelah diproses.`}>
                     <dl className="flex w-full flex-col rounded-2xl border-2 border-border px-4 py-1 text-left">
                         {summaryRows}
                         <div className="flex items-center justify-between gap-3 py-2.5">
@@ -147,7 +195,7 @@ export default function AjukanIzin() {
     }
 
     return (
-        <FocusPage title="Ajukan Izin" subtitle={`Untuk ${dummyStudent.name} · ${dummyStudent.className}`} onBack={goBack} isDirty={Boolean(type || startDate || reason || attachment)}>
+        <FocusPage title="Ajukan Izin" subtitle={activeStudent ? [`Untuk ${activeStudent.name}`, activeStudent.className !== '-' ? activeStudent.className : null].filter(Boolean).join(' · ') : undefined} onBack={goBack} isDirty={Boolean(type || startDate || reason || attachment)}>
             <form onSubmit={handleSubmit} noValidate className={focusCardClassName}>
                 <fieldset className="flex flex-col gap-1.5">
                     <legend className="mb-1.5 text-sm font-extrabold">Jenis Pengajuan</legend>
@@ -274,7 +322,7 @@ export default function AjukanIzin() {
                     <Info className="size-5" />
                 </span>
                 <p className="text-[13px] leading-normal text-subtle">
-                    Pengajuan diperiksa oleh <span className="font-extrabold text-ink">{dummyStudent.homeroomTeacher}</span>. Jika disetujui, absensi pada tanggal tersebut tercatat sebagai izin/sakit.
+                    Pengajuan diperiksa oleh <span className="font-extrabold text-ink">{homeroomTeacher}</span>{homeroomTeacher.endsWith('.') ? '' : '.'} Jika disetujui, absensi pada tanggal tersebut tercatat sebagai izin/sakit.
                 </p>
             </div>
             <ConfirmDialog
@@ -282,7 +330,7 @@ export default function AjukanIzin() {
                 onOpenChange={setIsConfirmOpen}
                 icon={Send}
                 title="Kirim pengajuan?"
-                description={`Pengajuan akan dikirim ke ${dummyStudent.homeroomTeacher} untuk disetujui.`}
+                description={`Pengajuan akan dikirim ke ${homeroomTeacher} untuk disetujui.`}
                 confirmLabel="Kirim"
                 onConfirm={send}>
                 <dl className="mt-4 flex w-full flex-col rounded-2xl border-2 border-border px-4 py-1 text-left">

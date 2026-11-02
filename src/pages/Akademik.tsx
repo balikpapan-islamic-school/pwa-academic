@@ -1,12 +1,19 @@
-import { lazy, Suspense, useState } from 'react'
-import { ChevronDown, Eye, FileText } from 'lucide-react'
-import { useSearchParams } from 'react-router-dom'
+import { ReactNode, useState } from 'react'
+import { Check, ChevronDown, ChevronRight } from 'lucide-react'
+import { Link, useSearchParams } from 'react-router-dom'
+import { EntryDetail, EntryResult, GradeFileViewer, NewBadge } from '@/components/akademik/grade-entry'
 import { ScreenHeader } from '@/components/kit/screen-header'
 import { SegmentedTabs } from '@/components/kit/segmented-tabs'
 import { toneAt } from '@/components/kit/tones'
-import { FileGradeEntry, GradeEntry, isNewGrade, PASSING_SCORE, dummyClassmates, dummyGradeEntries, dummySchedule, dummyScheduleDays, dummyStudent, dummySubjects } from '@/lib/dummy-ui'
-import { formatDate, monthNames, parseIsoDate } from '@/lib/format'
+import { Sheet, SheetContent, SheetDescription, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
+import { Skeleton } from '@/components/ui/skeleton'
+import { useStudent } from '@/contexts/StudentContext'
+import { useApiData } from '@/hooks/use-api-data'
+import { byNewest, countLabel, isNewGrade, subjectTone } from '@/lib/grades'
+import { dayNames, formatClock, monthNames, parseIsoDate, parseIsoDateTime, toIsoDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
+import { academicService } from '@/services'
+import { Classmate, Classroom, FileGradeEntry, GradeEntry, Semester, Subject } from '@/types/academic'
 
 type AkademikTab = 'nilai' | 'mapel' | 'kelas'
 
@@ -20,125 +27,58 @@ function isAkademikTab(value: string | null): value is AkademikTab {
     return value === 'nilai' || value === 'mapel' || value === 'kelas'
 }
 
-const PdfViewerDialog = lazy(() => import('@/components/pdf-viewer/pdf-viewer-dialog'))
-
-function byNewest(a: GradeEntry, b: GradeEntry) {
-    return b.publishedAt.localeCompare(a.publishedAt)
+function TabMessage({ children }: { children: ReactNode }) {
+    return <p className="rounded-[20px] bg-card p-4 text-center text-sm text-subtle">{children}</p>
 }
 
-// Warna tetap per mapel mengikuti urutan daftar mapel kelas.
-function subjectTone(subject: string) {
-    const index = dummySubjects.findIndex((item) => item.name === subject)
-    return toneAt(index === -1 ? 0 : index)
-}
-
-function teacherOf(subject: string) {
-    return dummySubjects.find((item) => item.name === subject)?.teacher
-}
-
-function countLabel(entries: GradeEntry[]) {
-    const files = entries.filter((entry) => entry.kind === 'file').length
-    const scores = entries.length - files
-    return [scores > 0 ? `${scores} nilai` : null, files > 0 ? `${files} file` : null].filter(Boolean).join(' · ')
-}
-
-function NewBadge() {
-    return <span className="shrink-0 rounded-full bg-cta px-2 py-0.5 text-[11px] font-extrabold normal-case tracking-normal text-ink">Baru</span>
-}
-
-// Hanya nilai angka yang punya hasil di kolom kanan; nilai file tampil sebagai lampiran.
-function EntryResult({ entry }: { entry: GradeEntry }) {
-    if (entry.kind === 'file') {
-        return null
-    }
-
-    const isBelow = entry.score < PASSING_SCORE
-
+function ListSkeleton({ count = 4, className = 'h-[72px] rounded-[20px]' }: { count?: number, className?: string }) {
     return (
-        <span className="flex shrink-0 flex-col items-end">
-            <span className={cn('font-display text-[22px] font-bold leading-none', isBelow ? 'text-pastel-coral-fg' : 'text-ink')}>{entry.score}</span>
-            {isBelow ? <span className="mt-1 text-[11px] font-extrabold text-pastel-coral-fg">&lt; KKM {PASSING_SCORE}</span> : null}
-        </span>
-    )
-}
-
-function EntryDetail({ entry, onOpenFile }: { entry: GradeEntry, onOpenFile: (entry: FileGradeEntry) => void }) {
-    return (
-        <>
-            {entry.note ? <span className="text-[13px] leading-snug text-[#44544A]">{entry.note}</span> : null}
-            {entry.kind === 'file' ? (
-                <button
-                    type="button"
-                    onClick={() => onOpenFile(entry)}
-                    className="mt-1 flex w-full items-center gap-2.5 rounded-2xl border-2 border-border bg-card p-2 pr-3 text-left transition-colors hover:border-primary">
-                    <span aria-hidden="true" className="flex size-10 shrink-0 flex-col items-center justify-center rounded-xl bg-pastel-coral text-pastel-coral-fg">
-                        <FileText className="size-[18px]" />
-                        <span className="text-[8px] font-extrabold leading-none">PDF</span>
-                    </span>
-                    <span className="flex min-w-0 flex-grow flex-col">
-                        <span className="truncate text-[13px] font-extrabold">{entry.fileName}</span>
-                        <span className="text-xs text-subtle">{entry.fileSize}</span>
-                    </span>
-                    <span className="flex shrink-0 items-center gap-1 text-[13px] font-extrabold text-primary">
-                        <Eye className="size-4" />
-                        Lihat
-                    </span>
-                </button>
-            ) : null}
-        </>
-    )
-}
-
-function SubjectGroup({ subject, entries, isOpen, onToggle, onOpenFile }: { subject: string, entries: GradeEntry[], isOpen: boolean, onToggle: () => void, onOpenFile: (entry: FileGradeEntry) => void }) {
-    const tone = subjectTone(subject)
-    const hasNew = entries.some((entry) => isNewGrade(entry))
-    const panelId = `nilai-${subject.replace(/\s+/g, '-').toLowerCase()}`
-
-    return (
-        <div className="overflow-hidden rounded-[20px] bg-card">
-            <button type="button" aria-expanded={isOpen} aria-controls={panelId} onClick={onToggle} className="flex w-full items-center gap-3 p-3.5 text-left">
-                <span aria-hidden="true" className={cn('flex size-11 shrink-0 items-center justify-center rounded-[14px] font-display text-lg font-bold', tone.bg, tone.fg)}>
-                    {subject.charAt(0)}
-                </span>
-                <span className="flex min-w-0 flex-grow flex-col gap-0.5">
-                    <span className="flex min-w-0 items-center gap-1.5">
-                        <span className="truncate text-[15px] font-extrabold">{subject}</span>
-                        {hasNew ? <NewBadge /> : null}
-                    </span>
-                    <span className="truncate text-xs text-subtle">{teacherOf(subject)} · {countLabel(entries)}</span>
-                </span>
-                <ChevronDown aria-hidden="true" className={cn('size-5 shrink-0 text-subtle transition-transform duration-200', isOpen && 'rotate-180')} strokeWidth={2.4} />
-            </button>
-
-            {isOpen ? (
-                <div id={panelId} className="mx-3.5 mb-3.5 rounded-2xl bg-[#F1F6F1] px-3.5 py-1">
-                    {[...entries].sort(byNewest).map((entry) => (
-                        <div key={entry.id} className="flex gap-3 border-b border-[#DDE6DE] py-3 last:border-b-0">
-                            <span aria-hidden="true" className={cn('w-1.5 shrink-0 self-stretch rounded-full', entry.kind === 'file' ? 'bg-[#F0827A]' : tone.bar)} />
-                            <span className="flex min-w-0 flex-grow flex-col gap-1">
-                                <span className="flex min-w-0 items-center gap-1.5">
-                                    <span className="truncate text-sm font-extrabold">{entry.assessment}</span>
-                                    {isNewGrade(entry) ? <NewBadge /> : null}
-                                </span>
-                                <span className="text-xs text-subtle">Terbit {formatDate(parseIsoDate(entry.publishedAt))}</span>
-                                <EntryDetail entry={entry} onOpenFile={onOpenFile} />
-                            </span>
-                            <span className="flex items-center">
-                                <EntryResult entry={entry} />
-                            </span>
-                        </div>
-                    ))}
-                </div>
-            ) : null}
+        <div aria-busy="true" aria-label="Memuat" className="flex flex-col gap-2.5">
+            {Array.from({ length: count }, (_, index) => <Skeleton key={index} className={className} />)}
         </div>
     )
 }
 
-function GradeHistory({ entries, onOpenFile }: { entries: GradeEntry[], onOpenFile: (entry: FileGradeEntry) => void }) {
+type SubjectRowProps = {
+    subject: GradeEntry['subject']
+    subjects: Subject[]
+    entries: GradeEntry[]
+    to: string
+}
+
+// Ringkasan satu mapel; daftar nilai lengkapnya ada di halaman detail mapel.
+function SubjectRow({ subject, subjects, entries, to }: SubjectRowProps) {
+    const tone = subjectTone(subjects, subject.id)
+    const hasNew = entries.some((entry) => isNewGrade(entry))
+    const latest = [...entries].sort(byNewest)[0]
+
+    return (
+        <Link to={to} className="flex items-center gap-3 rounded-[20px] bg-card p-3.5">
+            <span aria-hidden="true" className={cn('flex size-11 shrink-0 items-center justify-center rounded-[14px] font-display text-lg font-bold', tone.bg, tone.fg)}>
+                {subject.name.charAt(0)}
+            </span>
+            <span className="flex min-w-0 flex-grow flex-col gap-0.5">
+                <span className="flex min-w-0 items-center gap-1.5">
+                    <span className="truncate text-[15px] font-extrabold">{subject.name}</span>
+                    {hasNew ? <NewBadge /> : null}
+                </span>
+                <span className="truncate text-xs text-subtle">{[subject.teacherName, countLabel(entries)].filter(Boolean).join(' · ')}</span>
+                {latest ? (
+                    <span className="truncate text-xs text-[#44544A]">
+                        Terakhir: {latest.assessment}{latest.score !== null ? ` · ${latest.score}` : latest.kind === 'file' ? ' · file' : ''}
+                    </span>
+                ) : null}
+            </span>
+            <ChevronRight aria-hidden="true" className="size-5 shrink-0 text-subtle" strokeWidth={2.4} />
+        </Link>
+    )
+}
+
+function GradeHistory({ entries, subjects, onOpenFile }: { entries: GradeEntry[], subjects: Subject[], onOpenFile: (entry: FileGradeEntry) => void }) {
     const groups: Array<{ label: string, entries: GradeEntry[] }> = []
 
     for (const entry of [...entries].sort(byNewest)) {
-        const date = parseIsoDate(entry.publishedAt)
+        const date = parseIsoDateTime(entry.publishedAt)
         const label = `${monthNames[date.getMonth()]} ${date.getFullYear()}`
         const group = groups.at(-1)
 
@@ -155,8 +95,8 @@ function GradeHistory({ entries, onOpenFile }: { entries: GradeEntry[], onOpenFi
                 <section key={group.label} aria-label={group.label} className="flex flex-col gap-2.5">
                     <h3 className="ml-1 text-[13px] font-extrabold uppercase tracking-[0.4px] text-subtle">{group.label}</h3>
                     {group.entries.map((entry) => {
-                        const tone = subjectTone(entry.subject)
-                        const date = parseIsoDate(entry.publishedAt)
+                        const tone = subjectTone(subjects, entry.subject.id)
+                        const date = parseIsoDateTime(entry.publishedAt)
 
                         return (
                             <div key={entry.id} className="flex gap-3 rounded-[20px] bg-card p-3.5">
@@ -166,12 +106,11 @@ function GradeHistory({ entries, onOpenFile }: { entries: GradeEntry[], onOpenFi
                                 </span>
                                 <span className="flex min-w-0 flex-grow flex-col gap-1">
                                     <span className={cn('flex min-w-0 items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-[0.4px]', tone.fg)}>
-                                        <span className="truncate">{entry.subject}</span>
+                                        <span className="truncate">{entry.subject.name}</span>
                                         {isNewGrade(entry) ? <NewBadge /> : null}
                                     </span>
                                     <span className="truncate text-[15px] font-extrabold">{entry.assessment}</span>
                                     <EntryDetail entry={entry} onOpenFile={onOpenFile} />
-                                    <span className="text-xs text-subtle">Diterbitkan oleh {entry.publisher}</span>
                                 </span>
                                 <span className="flex items-center">
                                     <EntryResult entry={entry} />
@@ -187,19 +126,45 @@ function GradeHistory({ entries, onOpenFile }: { entries: GradeEntry[], onOpenFi
 
 type NilaiMode = 'mapel' | 'riwayat'
 
-function NilaiTab() {
-    const [mode, setMode] = useState<NilaiMode>('mapel')
-    const [openSubject, setOpenSubject] = useState<string | null>(null)
-    const [viewedFile, setViewedFile] = useState<FileGradeEntry | null>(null)
+type TabProps = {
+    studentId: string
+    semesterId: string | undefined
+}
 
-    const subjectGroups = dummySubjects
-        .map((subject) => ({ subject: subject.name, entries: dummyGradeEntries.filter((entry) => entry.subject === subject.name) }))
-        .filter((group) => group.entries.length > 0)
+// Urutan mapel mengikuti GET /subjects; mapel yang tidak ada di daftar ditaruh di akhir.
+function groupBySubject(entries: GradeEntry[], subjects: Subject[]) {
+    const groups = new Map<string, { subject: GradeEntry['subject'], entries: GradeEntry[] }>()
+    const order = (id: string) => {
+        const index = subjects.findIndex((subject) => subject.id === id)
+        return index === -1 ? subjects.length : index
+    }
+
+    for (const entry of entries) {
+        const group = groups.get(entry.subject.id)
+        if (group) {
+            group.entries.push(entry)
+        } else {
+            groups.set(entry.subject.id, { subject: entry.subject, entries: [entry] })
+        }
+    }
+
+    return [...groups.values()].sort((a, b) => order(a.subject.id) - order(b.subject.id))
+}
+
+function NilaiTab({ studentId, semesterId }: TabProps) {
+    const [mode, setMode] = useState<NilaiMode>('mapel')
+    const [viewedFile, setViewedFile] = useState<FileGradeEntry | null>(null)
+    const grades = useApiData(
+        () => Promise.all([academicService.getGradeEntries(studentId, semesterId), academicService.getSubjects(studentId, semesterId)]),
+        [studentId, semesterId]
+    )
+    const [entries, subjects] = grades.data ?? [[], []]
+    const subjectGroups = groupBySubject(entries, subjects)
 
     return (
         <div className="flex flex-col gap-3.5">
             <div className="flex items-center justify-between gap-3">
-                <h2 className="font-display text-[19px] font-semibold">{mode === 'mapel' ? 'Nilai per Mapel' : 'Riwayat Terbit'}</h2>
+                <h2 className="font-display text-[19px] font-semibold">{mode === 'mapel' ? 'Nilai per Mapel' : 'Riwayat Nilai'}</h2>
                 <div role="tablist" aria-label="Tampilan nilai" className="flex gap-1 rounded-full bg-card p-1">
                     {([['mapel', 'Per Mapel'], ['riwayat', 'Riwayat']] as const).map(([value, label]) => (
                         <button
@@ -215,59 +180,64 @@ function NilaiTab() {
                 </div>
             </div>
 
-            {mode === 'mapel' ? (
+            {grades.status === 'loading' ? (
+                <ListSkeleton />
+            ) : grades.status === 'error' ? (
+                <TabMessage>Nilai belum dapat dimuat. Coba lagi nanti.</TabMessage>
+            ) : entries.length === 0 ? (
+                <TabMessage>Belum ada nilai pada semester ini.</TabMessage>
+            ) : mode === 'mapel' ? (
                 <div className="flex flex-col gap-2.5">
                     {subjectGroups.map((group) => (
-                        <SubjectGroup
-                            key={group.subject}
+                        <SubjectRow
+                            key={group.subject.id}
                             subject={group.subject}
+                            subjects={subjects}
                             entries={group.entries}
-                            isOpen={openSubject === group.subject}
-                            onToggle={() => setOpenSubject((current) => (current === group.subject ? null : group.subject))}
-                            onOpenFile={setViewedFile}
+                            to={`/akademik/nilai/${group.subject.id}${semesterId ? `?semester=${encodeURIComponent(semesterId)}` : ''}`}
                         />
                     ))}
                 </div>
             ) : (
-                <GradeHistory entries={dummyGradeEntries} onOpenFile={setViewedFile} />
+                <GradeHistory entries={entries} subjects={subjects} onOpenFile={setViewedFile} />
             )}
 
-            <p className="text-center text-xs text-subtle">Nilai tampil setelah diterbitkan oleh guru mapel</p>
+            <p className="text-center text-xs text-subtle">Nilai tampil setelah diinput oleh guru mapel</p>
 
-            {viewedFile ? (
-                <Suspense fallback={null}>
-                    <PdfViewerDialog
-                        open
-                        onOpenChange={(open) => !open && setViewedFile(null)}
-                        url={viewedFile.fileUrl}
-                        title={viewedFile.assessment}
-                        subtitle={`${viewedFile.subject} · ${viewedFile.publisher}`}
-                        fileName={viewedFile.fileName}
-                    />
-                </Suspense>
-            ) : null}
+            <GradeFileViewer entry={viewedFile} onClose={() => setViewedFile(null)} />
         </div>
     )
 }
 
-function MapelTab() {
-    const totalHours = dummySubjects.reduce((sum, subject) => sum + subject.hours, 0)
+function MapelTab({ studentId, semesterId }: TabProps) {
+    const subjects = useApiData(() => academicService.getSubjects(studentId, semesterId), [studentId, semesterId])
+
+    if (!subjects.data) {
+        return subjects.status === 'error'
+            ? <TabMessage>Daftar mapel belum dapat dimuat. Coba lagi nanti.</TabMessage>
+            : <ListSkeleton count={2} className="h-[150px] rounded-[22px]" />
+    }
+    if (subjects.data.length === 0) {
+        return <TabMessage>Belum ada mata pelajaran pada semester ini.</TabMessage>
+    }
+
+    const totalHours = subjects.data.reduce((sum, subject) => sum + subject.hoursPerWeek, 0)
 
     return (
         <div className="flex flex-col gap-3">
-            <p className="text-sm text-subtle">{dummySubjects.length} mata pelajaran · {totalHours} jam pelajaran per minggu</p>
+            <p className="text-sm text-subtle">{subjects.data.length} mata pelajaran · {totalHours} jam pelajaran per minggu</p>
             <div className="grid grid-cols-2 gap-3">
-                {dummySubjects.map((subject, index) => {
+                {subjects.data.map((subject, index) => {
                     const tone = toneAt(index)
 
                     return (
-                        <div key={subject.name} className={cn('flex min-h-[150px] flex-col rounded-[22px] p-3.5', tone.bg)}>
+                        <div key={subject.id} className={cn('flex min-h-[150px] flex-col rounded-[22px] p-3.5', tone.bg)}>
                             <span aria-hidden="true" className={cn('flex size-[42px] items-center justify-center rounded-[14px] bg-card font-display text-lg font-bold', tone.fg)}>
                                 {subject.name.charAt(0)}
                             </span>
                             <span className="mt-3.5 font-display text-base font-semibold leading-[1.2]">{subject.name}</span>
-                            <span className="mt-1 text-xs text-[#44544A]">{subject.teacher}</span>
-                            <span className="mt-2 text-xs font-extrabold">{subject.hours} JP / minggu</span>
+                            {subject.teacherName ? <span className="mt-1 text-xs text-[#44544A]">{subject.teacherName}</span> : null}
+                            <span className="mt-2 text-xs font-extrabold">{subject.hoursPerWeek} JP / minggu</span>
                         </div>
                     )
                 })}
@@ -276,84 +246,236 @@ function MapelTab() {
     )
 }
 
-function KelasTab() {
-    const [dayIndex, setDayIndex] = useState(0)
+function ClassmateAvatar({ classmate, index, className }: { classmate: Classmate, index: number, className?: string }) {
+    const tone = toneAt(index)
+
+    if (classmate.photoUrl) {
+        return <img src={classmate.photoUrl} alt="" className={cn('size-10 shrink-0 rounded-full object-cover', className)} />
+    }
 
     return (
-        <div className="flex flex-col gap-3.5">
-            <section className="flex flex-col gap-3.5 rounded-3xl bg-card p-[18px]">
-                <div className="flex items-center gap-3.5">
-                    <span aria-hidden="true" className="flex size-[60px] items-center justify-center rounded-[18px] bg-pastel-mint font-display text-xl font-bold text-pastel-mint-fg">
-                        {dummyStudent.className.split(' ')[0]}
-                    </span>
-                    <div>
-                        <p className="font-display text-xl font-bold">{dummyStudent.className}</p>
-                        <p className="mt-0.5 text-[13px] text-subtle">{dummyStudent.room}</p>
-                    </div>
+        <span aria-hidden="true" className={cn('flex size-10 shrink-0 items-center justify-center rounded-full text-xs font-extrabold', tone.bg, tone.fg, className)}>
+            {classmate.initials}
+        </span>
+    )
+}
+
+// Daftar nama teman sekelas (GET /classroom/students), dimuat saat sheet dibuka.
+function ClassmatesSheet({ studentId, semesterId, studentCount }: TabProps & { studentCount: number }) {
+    const [open, setOpen] = useState(false)
+    const classmates = useApiData(open ? () => academicService.getClassmates(studentId, semesterId) : null, [open, studentId, semesterId])
+
+    return (
+        <Sheet open={open} onOpenChange={setOpen}>
+            <SheetTrigger className="flex min-h-11 items-center text-sm font-extrabold text-primary">Lihat {studentCount} siswa</SheetTrigger>
+            <SheetContent side="bottom" className="mx-auto max-h-[85vh] max-w-md gap-0 rounded-t-[28px] border-0 bg-background px-5 pb-8 pt-3 [&>button:last-child]:hidden">
+                <span aria-hidden="true" className="mx-auto mb-4 h-1.5 w-10 shrink-0 rounded-full bg-[#C3CEC5]" />
+                <SheetTitle className="font-display text-xl font-bold">Teman Sekelas</SheetTitle>
+                <SheetDescription className="mt-1 text-sm text-subtle">{studentCount} siswa di kelas ini.</SheetDescription>
+                <div className="mt-4 overflow-y-auto rounded-3xl bg-card px-4 py-1">
+                    {classmates.data ? classmates.data.map((classmate, index) => (
+                        <div key={classmate.id} className="flex items-center gap-3 border-b border-muted py-2.5 last:border-b-0">
+                            <ClassmateAvatar classmate={classmate} index={index} />
+                            <span className="text-[15px] font-bold">{classmate.name}</span>
+                        </div>
+                    )) : classmates.status === 'error' ? (
+                        <p className="py-4 text-center text-sm text-subtle">Daftar siswa belum dapat dimuat.</p>
+                    ) : (
+                        [0, 1, 2, 3, 4].map((item) => (
+                            <div key={item} className="flex items-center gap-3 py-2.5">
+                                <Skeleton className="size-10 rounded-full" />
+                                <Skeleton className="h-4 w-40" />
+                            </div>
+                        ))
+                    )}
                 </div>
-                <div className="grid grid-cols-2 gap-2.5">
-                    <div className="rounded-2xl bg-[#F1F6F1] p-3">
-                        <p className="text-xs font-bold text-subtle">Wali Kelas</p>
-                        <p className="mt-0.5 text-sm font-extrabold">{dummyStudent.homeroomTeacherShort}</p>
-                    </div>
-                    <div className="rounded-2xl bg-[#F1F6F1] p-3">
-                        <p className="text-xs font-bold text-subtle">Jumlah Siswa</p>
-                        <p className="mt-0.5 text-sm font-extrabold">{dummyStudent.classSize} siswa</p>
-                    </div>
+            </SheetContent>
+        </Sheet>
+    )
+}
+
+function ClassroomCard({ classroom }: { classroom: Classroom }) {
+    return (
+        <section className="flex flex-col gap-3.5 rounded-3xl bg-card p-[18px]">
+            <div className="flex items-center gap-3.5">
+                <span aria-hidden="true" className="flex size-[60px] items-center justify-center rounded-[18px] bg-pastel-mint font-display text-xl font-bold text-pastel-mint-fg">
+                    {classroom.gradeLevel ?? classroom.name.split(' ')[0]}
+                </span>
+                <div>
+                    <p className="font-display text-xl font-bold">{classroom.name}</p>
+                    {classroom.room || classroom.location ? <p className="mt-0.5 text-[13px] text-subtle">{[classroom.room, classroom.location].filter(Boolean).join(' · ')}</p> : null}
                 </div>
-            </section>
-
-            <h2 className="mt-1 font-display text-[19px] font-semibold">Jadwal Pelajaran</h2>
-            <div className="flex gap-2">
-                {dummyScheduleDays.map((day, index) => {
-                    const isActive = index === dayIndex
-
-                    return (
-                        <button
-                            key={day.label}
-                            type="button"
-                            aria-pressed={isActive}
-                            onClick={() => setDayIndex(index)}
-                            className={cn('flex h-16 flex-1 flex-col items-center justify-center gap-0.5 rounded-[18px]', isActive ? 'bg-ink text-white' : 'bg-card text-ink')}>
-                            <span className="text-xs font-bold">{day.label}</span>
-                            <span className="font-display text-lg font-bold">{day.date}</span>
-                        </button>
-                    )
-                })}
             </div>
-
-            <div className="rounded-3xl bg-card px-4 py-1.5">
-                {dummySchedule[dayIndex].map((lesson, index) => (
-                    <div key={lesson.start} className="flex items-center gap-3.5 border-b border-muted py-3 last:border-b-0">
-                        <span className="w-[54px] shrink-0 text-[13px] font-extrabold leading-[1.3] text-subtle">{lesson.start}<br />{lesson.end}</span>
-                        <span aria-hidden="true" className={cn('w-1.5 self-stretch rounded-full', toneAt(index).bar)} />
-                        <span className="flex flex-grow flex-col gap-0.5">
-                            <span className="text-[15px] font-extrabold">{lesson.subject}</span>
-                            <span className="text-xs text-subtle">{lesson.teacher}</span>
-                        </span>
-                    </div>
-                ))}
+            <div className="grid grid-cols-2 gap-2.5">
+                <div className="rounded-2xl bg-[#F1F6F1] p-3">
+                    <p className="text-xs font-bold text-subtle">Wali Kelas</p>
+                    <p className="mt-0.5 text-sm font-extrabold">{classroom.homeroomTeacher ?? '-'}</p>
+                </div>
+                <div className="rounded-2xl bg-[#F1F6F1] p-3">
+                    <p className="text-xs font-bold text-subtle">Jumlah Siswa</p>
+                    <p className="mt-0.5 text-sm font-extrabold">{classroom.studentCount} siswa</p>
+                </div>
             </div>
+        </section>
+    )
+}
 
+function ClassmatesSection({ classroom, studentId, semesterId }: TabProps & { classroom: Classroom }) {
+    const others = classroom.studentCount - classroom.classmatesPreview.length
+
+    return (
+        <>
             <h2 className="mt-1 font-display text-[19px] font-semibold">Teman Sekelas</h2>
             <div className="flex items-center justify-between rounded-3xl bg-card px-4 py-3.5">
                 <div className="flex">
-                    {dummyClassmates.map((initials, index) => {
-                        const tone = toneAt(index)
+                    {classroom.classmatesPreview.map((classmate, index) => (
+                        <ClassmateAvatar key={classmate.id} classmate={classmate} index={index} className={cn('border-[3px] border-white', index > 0 && '-ml-2.5')} />
+                    ))}
+                    {others > 0 ? (
+                        <span aria-hidden="true" className={cn('flex size-10 items-center justify-center rounded-full border-[3px] border-white bg-ink text-xs font-extrabold text-white', classroom.classmatesPreview.length > 0 && '-ml-2.5')}>
+                            +{others}
+                        </span>
+                    ) : null}
+                </div>
+                <ClassmatesSheet studentId={studentId} semesterId={semesterId} studentCount={classroom.studentCount} />
+            </div>
+        </>
+    )
+}
+
+function WeekScheduleSection({ studentId }: { studentId: string }) {
+    const schedule = useApiData(() => academicService.getSchedule(studentId), [studentId])
+    const [selectedDate, setSelectedDate] = useState<string | null>(null)
+    const days = schedule.data?.days ?? []
+    // Default: hari ini bila ada di minggu ini, selain itu hari pertama.
+    const today = toIsoDate(new Date())
+    const activeDay = days.find((day) => day.date === selectedDate) ?? days.find((day) => day.date === today) ?? days[0]
+
+    return (
+        <>
+            <h2 className="mt-1 font-display text-[19px] font-semibold">Jadwal Pelajaran</h2>
+            {schedule.status === 'loading' ? (
+                <ListSkeleton count={2} className="h-16 rounded-[18px]" />
+            ) : !activeDay ? (
+                <TabMessage>{schedule.status === 'error' ? 'Jadwal belum dapat dimuat. Coba lagi nanti.' : 'Belum ada jadwal minggu ini.'}</TabMessage>
+            ) : (
+                <>
+                    <div className="flex gap-2">
+                        {days.map((day) => {
+                            const isActive = day.date === activeDay.date
+
+                            return (
+                                <button
+                                    key={day.date}
+                                    type="button"
+                                    aria-pressed={isActive}
+                                    onClick={() => setSelectedDate(day.date)}
+                                    className={cn('flex h-16 flex-1 flex-col items-center justify-center gap-0.5 rounded-[18px]', isActive ? 'bg-ink text-white' : 'bg-card text-ink')}>
+                                    <span className="text-xs font-bold">{dayNames[day.dayOfWeek % 7].slice(0, 3)}</span>
+                                    <span className="font-display text-lg font-bold">{parseIsoDate(day.date).getDate()}</span>
+                                </button>
+                            )
+                        })}
+                    </div>
+
+                    {!activeDay.isSchoolDay || activeDay.lessons.length === 0 ? (
+                        <TabMessage>{activeDay.holidayName ?? 'Tidak ada pelajaran pada hari ini.'}</TabMessage>
+                    ) : (
+                        <div className="rounded-3xl bg-card px-4 py-1.5">
+                            {activeDay.lessons.map((lesson, index) => (
+                                <div key={lesson.id} className="flex items-center gap-3.5 border-b border-muted py-3 last:border-b-0">
+                                    <span className="w-[54px] shrink-0 text-[13px] font-extrabold leading-[1.3] text-subtle">{formatClock(lesson.startTime)}<br />{formatClock(lesson.endTime)}</span>
+                                    <span aria-hidden="true" className={cn('w-1.5 self-stretch rounded-full', toneAt(index).bar)} />
+                                    <span className="flex flex-grow flex-col gap-0.5">
+                                        <span className="text-[15px] font-extrabold">{lesson.subject.name}</span>
+                                        <span className="text-xs text-subtle">{[lesson.teacherName, lesson.room].filter(Boolean).join(' · ')}</span>
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </>
+            )}
+        </>
+    )
+}
+
+function KelasTab({ studentId, semesterId }: TabProps) {
+    const classroom = useApiData(() => academicService.getClassroom(studentId, semesterId), [studentId, semesterId])
+
+    return (
+        <div className="flex flex-col gap-3.5">
+            {classroom.data ? (
+                <ClassroomCard classroom={classroom.data} />
+            ) : classroom.status === 'error' ? (
+                <TabMessage>Data kelas belum dapat dimuat. Coba lagi nanti.</TabMessage>
+            ) : (
+                <Skeleton className="h-[180px] rounded-3xl" />
+            )}
+            <WeekScheduleSection studentId={studentId} />
+            {classroom.data ? <ClassmatesSection classroom={classroom.data} studentId={studentId} semesterId={semesterId} /> : null}
+        </div>
+    )
+}
+
+function semesterLabel(semester: Semester) {
+    return `${semester.name} ${semester.schoolYear}`
+}
+
+type SemesterPickerProps = {
+    semesters: Semester[]
+    activeId: string | undefined
+    onSelect: (semesterId: string) => void
+    variant: 'header' | 'compact'
+}
+
+function SemesterPicker({ semesters, activeId, onSelect, variant }: SemesterPickerProps) {
+    const [open, setOpen] = useState(false)
+    const active = semesters.find((semester) => semester.id === activeId)
+
+    return (
+        <Sheet open={open} onOpenChange={setOpen}>
+            <SheetTrigger
+                disabled={!active}
+                className={cn(
+                    'flex shrink-0 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-extrabold',
+                    variant === 'header' ? 'h-11 bg-card shadow-chip' : 'h-10 bg-white/[0.18]'
+                )}>
+                {active ? semesterLabel(active) : 'Semester'}
+                <ChevronDown className="size-4" strokeWidth={2.4} />
+            </SheetTrigger>
+            <SheetContent side="bottom" className="mx-auto max-w-md gap-0 rounded-t-[28px] border-0 bg-background px-5 pb-8 pt-3 [&>button:last-child]:hidden">
+                <span aria-hidden="true" className="mx-auto mb-4 h-1.5 w-10 rounded-full bg-[#C3CEC5]" />
+                <SheetTitle className="font-display text-xl font-bold">Pilih Semester</SheetTitle>
+                <SheetDescription className="mt-1 text-sm text-subtle">Nilai, mapel, dan kelas mengikuti semester yang dipilih.</SheetDescription>
+                <div role="radiogroup" aria-label="Daftar semester" className="mt-4 flex flex-col gap-2">
+                    {semesters.map((semester) => {
+                        const isActive = semester.id === activeId
 
                         return (
-                            <span key={initials} aria-hidden="true" className={cn('flex size-10 items-center justify-center rounded-full border-[3px] border-white text-xs font-extrabold', index > 0 && '-ml-2.5', tone.bg, tone.fg)}>
-                                {initials}
-                            </span>
+                            <button
+                                key={semester.id}
+                                type="button"
+                                role="radio"
+                                aria-checked={isActive}
+                                onClick={() => {
+                                    onSelect(semester.id)
+                                    setOpen(false)
+                                }}
+                                className={cn('flex items-center gap-3 rounded-[20px] border-2 bg-card p-3.5 text-left transition-colors', isActive ? 'border-primary' : 'border-card')}>
+                                <span className="flex min-w-0 flex-grow flex-col">
+                                    <span className="text-[15px] font-extrabold">{semesterLabel(semester)}</span>
+                                    {semester.isActive ? <span className="text-[13px] text-subtle">Semester berjalan</span> : null}
+                                </span>
+                                <span aria-hidden="true" className={cn('flex size-6 shrink-0 items-center justify-center rounded-full', isActive ? 'bg-primary text-white' : 'border-2 border-[#B5C2B8]')}>
+                                    {isActive ? <Check className="size-4" strokeWidth={3} /> : null}
+                                </span>
+                            </button>
                         )
                     })}
-                    <span aria-hidden="true" className="-ml-2.5 flex size-10 items-center justify-center rounded-full border-[3px] border-white bg-ink text-xs font-extrabold text-white">
-                        +{dummyStudent.classSize - dummyClassmates.length}
-                    </span>
                 </div>
-                <button type="button" className="flex min-h-11 items-center text-sm font-extrabold text-primary">Lihat {dummyStudent.classSize} siswa</button>
-            </div>
-        </div>
+            </SheetContent>
+        </Sheet>
     )
 }
 
@@ -361,35 +483,58 @@ export default function Akademik() {
     const [searchParams, setSearchParams] = useSearchParams()
     const tabParam = searchParams.get('tab')
     const tab: AkademikTab = isAkademikTab(tabParam) ? tabParam : 'nilai'
+    const { activeStudent } = useStudent()
+    const studentId = activeStudent?.id ?? ''
+    const semesters = useApiData(studentId ? () => academicService.getSemesters(studentId) : null, [studentId])
+    const semesterList = semesters.data ?? []
+    // Semester disimpan di URL (`?semester=`) agar tetap terpilih saat kembali dari detail mapel.
+    // Kosong, atau bukan milik anak aktif (mis. setelah ganti anak) = semester aktif (default backend).
+    const semesterParam = searchParams.get('semester')
+    const semesterId = semesterParam && semesterList.some((semester) => semester.id === semesterParam) ? semesterParam : undefined
+    const shownSemesterId = semesterId ?? semesterList.find((semester) => semester.isActive)?.id ?? semesterList[0]?.id
+
+    function updateParams(next: { tab?: AkademikTab, semester?: string }) {
+        const nextTab = next.tab ?? tab
+        const nextSemester = 'semester' in next ? next.semester : semesterId
+        const params: Record<string, string> = {}
+        if (nextTab !== 'nilai') {
+            params.tab = nextTab
+        }
+        if (nextSemester) {
+            params.semester = nextSemester
+        }
+        setSearchParams(params, { replace: true })
+    }
+
+    function selectSemester(nextId: string) {
+        updateParams({ semester: semesterList.find((semester) => semester.id === nextId)?.isActive ? undefined : nextId })
+    }
 
     return (
         <div className="flex flex-col gap-[18px]">
             <ScreenHeader
                 title="Akademik"
-                action={(
-                    <button type="button" className="flex h-11 items-center gap-1.5 rounded-full bg-card px-3.5 text-[13px] font-extrabold shadow-chip">
-                        {dummyStudent.semester} {dummyStudent.schoolYear}
-                        <ChevronDown className="size-4" strokeWidth={2.4} />
-                    </button>
-                )}
-                compactAction={(
-                    <button type="button" className="flex h-10 shrink-0 items-center gap-1.5 rounded-full bg-white/[0.18] px-3.5 text-[13px] font-extrabold">
-                        {dummyStudent.semester} {dummyStudent.schoolYear}
-                        <ChevronDown className="size-4" strokeWidth={2.4} />
-                    </button>
-                )}
+                action={<SemesterPicker semesters={semesterList} activeId={shownSemesterId} onSelect={selectSemester} variant="header" />}
+                compactAction={<SemesterPicker semesters={semesterList} activeId={shownSemesterId} onSelect={selectSemester} variant="compact" />}
             />
 
             <SegmentedTabs
                 label="Bagian akademik"
                 value={tab}
                 options={tabOptions}
-                onChange={(next) => setSearchParams(next === 'nilai' ? {} : { tab: next }, { replace: true })}
+                onChange={(next) => updateParams({ tab: next })}
             />
 
-            {tab === 'nilai' ? <NilaiTab /> : null}
-            {tab === 'mapel' ? <MapelTab /> : null}
-            {tab === 'kelas' ? <KelasTab /> : null}
+            {/* Dengan `?semester=`, tunggu daftar semester agar tab tidak sempat memuat semester aktif lebih dulu. */}
+            {studentId && !(semesterParam && semesters.status === 'loading') ? (
+                <>
+                    {tab === 'nilai' ? <NilaiTab studentId={studentId} semesterId={semesterId} /> : null}
+                    {tab === 'mapel' ? <MapelTab studentId={studentId} semesterId={semesterId} /> : null}
+                    {tab === 'kelas' ? <KelasTab studentId={studentId} semesterId={semesterId} /> : null}
+                </>
+            ) : (
+                <ListSkeleton />
+            )}
         </div>
     )
 }
