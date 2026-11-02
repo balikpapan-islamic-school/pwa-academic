@@ -1,36 +1,37 @@
-import { ReactNode, useState } from 'react'
-import { AlertTriangle, ArrowRight, Bell, BookOpen, CalendarCheck, Clock3, Link2, Wallet } from 'lucide-react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { ReactNode, useEffect, useState } from 'react'
+import { AlertTriangle, ArrowRight, BookOpen, CalendarCheck, Clock3, Link2, UserRoundPlus, Wallet } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { BisLogo } from '@/components/bis-logo'
 import { features, spmb } from '@/config/app'
+import { ChildAvatar } from '@/components/dashboard/child-avatar'
 import { ChildSwitcher } from '@/components/dashboard/child-switcher'
 import { SchoolNews } from '@/components/dashboard/school-news'
 import { ChildRequestCard } from '@/components/hubungkan/child-request-card'
 import { CompactTopBar } from '@/components/kit/compact-top-bar'
+import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '@/contexts/AuthContext'
-import { dummyBills, dummyChildren, dummyChildRequests, dummyCurrentLesson, dummyGradeEntries, dummyNextLessons, dummyStudent, dummyTodayLessonCount, isNewGrade } from '@/lib/dummy-ui'
+import { useStudent } from '@/contexts/StudentContext'
+import { useHasLinkedStudent } from '@/hooks/use-has-linked-student'
+import { hasPendingChildRequest } from '@/lib/child-requests'
+import { ChildLinkRequest, dummyBills, dummyCurrentLesson, dummyGradeEntries, dummyNextLessons, dummyStudent, dummyTodayLessonCount, isNewGrade } from '@/lib/dummy-ui'
 import { formatCurrency } from '@/lib/format'
 import { cn } from '@/lib/utils'
+import { academicService } from '@/services'
+import { StudentSummary } from '@/types/academic'
 
-function NotificationButton({ unread }: { unread: number }) {
+// Beranda tanpa peserta didik: aksi header langsung ke Hubungkan Peserta Didik.
+function AddChildButton() {
     return (
-        <Link
-            to="/notifikasi"
-            aria-label={unread > 0 ? `Notifikasi, ${unread} baru` : 'Notifikasi'}
-            className="relative flex size-12 shrink-0 items-center justify-center rounded-full bg-card shadow-chip">
-            <Bell className="size-[22px]" />
-            {unread > 0 ? (
-                <span aria-hidden="true" className="absolute right-3 top-[11px] size-[9px] rounded-full border-2 border-white bg-[#E5484D]" />
-            ) : null}
+        <Link to="/hubungkan-anak" aria-label="Tambah anak" className="flex size-12 shrink-0 items-center justify-center rounded-full bg-card shadow-chip">
+            <UserRoundPlus className="size-[22px]" />
         </Link>
     )
 }
 
-function CompactNotificationLink({ unread }: { unread: number }) {
+function CompactAddChildLink() {
     return (
-        <Link to="/notifikasi" aria-label={unread > 0 ? `Notifikasi, ${unread} baru` : 'Notifikasi'} className="relative flex size-10 shrink-0 items-center justify-center rounded-full bg-white/[0.18]">
-            <Bell className="size-5" />
-            {unread > 0 ? <span aria-hidden="true" className="absolute right-2 top-2 size-2 rounded-full border border-white bg-[#E5484D]" /> : null}
+        <Link to="/hubungkan-anak" aria-label="Tambah anak" className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white/[0.18]">
+            <UserRoundPlus className="size-5" />
         </Link>
     )
 }
@@ -48,30 +49,27 @@ function ModuleCard({ to, label, meta, icon, className, iconClassName, metaClass
     )
 }
 
-const ACTIVE_CHILD_KEY = 'pwa-academic-active-child'
-
-function readActiveChildId() {
-    try {
-        const stored = window.localStorage.getItem(ACTIVE_CHILD_KEY)
-        return dummyChildren.some((child) => child.id === stored) ? stored! : dummyChildren[0].id
-    } catch {
-        return dummyChildren[0].id
-    }
+function StudentDashboardSkeleton() {
+    return (
+        <div aria-busy="true" aria-label="Memuat Beranda" className="flex flex-col gap-5">
+            <div className="flex items-center gap-3">
+                <Skeleton className="size-[52px] rounded-full" />
+                <div className="flex flex-grow flex-col gap-2">
+                    <Skeleton className="h-6 w-40" />
+                    <Skeleton className="h-4 w-52" />
+                </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3.5">
+                {[0, 1, 2, 3].map((item) => <Skeleton key={item} className="h-[140px] rounded-3xl" />)}
+            </div>
+        </div>
+    )
 }
 
-function StudentDashboard() {
-    const [activeChildId, setActiveChildId] = useState(readActiveChildId)
-    const child = dummyChildren.find((item) => item.id === activeChildId) ?? dummyChildren[0]
-    const hasManyChildren = dummyChildren.length > 1
-
-    function selectChild(id: string) {
-        setActiveChildId(id)
-        try {
-            window.localStorage.setItem(ACTIVE_CHILD_KEY, id)
-        } catch {
-            // Pilihan anak cukup bertahan selama sesi bila storage diblokir.
-        }
-    }
+function StudentDashboard({ child }: { child: StudentSummary }) {
+    const { linkedStudents, setActiveStudentId } = useStudent()
+    const childIndex = linkedStudents.findIndex((item) => item.id === child.id)
+    const childMeta = [child.className !== '-' ? `Kelas ${child.className}` : null, child.schoolName].filter(Boolean).join(' · ')
 
     const newGradeCount = dummyGradeEntries.filter((entry) => isNewGrade(entry)).length
     const nearestBill = dummyBills[0]
@@ -79,23 +77,18 @@ function StudentDashboard() {
     return (
         <>
             <header className="flex items-center gap-3">
-                <div aria-hidden="true" className={cn('flex size-[52px] shrink-0 items-center justify-center rounded-full border-[3px] border-white font-display text-[19px] font-bold shadow-[0_4px_12px_rgba(0,0,0,0.10)]', child.avatarClassName)}>
-                    {child.initials}
-                </div>
+                <ChildAvatar student={child} index={childIndex} className="size-[52px] border-[3px] border-white text-[19px] shadow-[0_4px_12px_rgba(0,0,0,0.10)]" />
                 <div className="min-w-0 flex-grow">
                     <h1 className="truncate font-display text-[23px] font-bold">Halo, {child.nickname}!</h1>
-                    <p className="mt-0.5 truncate text-sm text-subtle">Kelas {child.className} · Semester {child.semester}</p>
+                    {childMeta ? <p className="mt-0.5 truncate text-sm text-subtle">{childMeta}</p> : null}
                 </div>
-                {hasManyChildren
-                    ? <ChildSwitcher items={dummyChildren} activeId={child.id} onSelect={selectChild} />
-                    : <NotificationButton unread={3} />}
+                {/* Selalu tampil, juga untuk satu anak, karena sheet-nya memuat tombol tambah anak. */}
+                <ChildSwitcher items={linkedStudents} activeId={child.id} onSelect={setActiveStudentId} />
             </header>
             <CompactTopBar
                 title={`Halo, ${child.nickname}!`}
-                leading={<span aria-hidden="true" className={cn('flex size-9 shrink-0 items-center justify-center rounded-full border-2 border-white font-display text-sm font-bold', child.avatarClassName)}>{child.initials}</span>}
-                action={hasManyChildren
-                    ? <ChildSwitcher items={dummyChildren} activeId={child.id} onSelect={selectChild} variant="compact" />
-                    : <CompactNotificationLink unread={3} />}
+                leading={<ChildAvatar student={child} index={childIndex} className="size-9 border-2 border-white text-sm" />}
+                action={<ChildSwitcher items={linkedStudents} activeId={child.id} onSelect={setActiveStudentId} variant="compact" />}
             />
 
             <section aria-label="Menu utama" className="grid grid-cols-2 gap-3.5">
@@ -156,8 +149,35 @@ function StudentDashboard() {
 }
 
 function EmptyDashboard() {
-    const { user } = useAuth()
-    const openRequests = dummyChildRequests.filter((request) => request.status !== 'APPROVED')
+    const { user, refreshUser } = useAuth()
+    const [requests, setRequests] = useState<ChildLinkRequest[]>([])
+    const openRequests = requests.filter((request) => request.status !== 'APPROVED')
+    const isLocked = hasPendingChildRequest(requests)
+
+    useEffect(() => {
+        let cancelled = false
+
+        academicService.getChildRequests()
+            .then((result) => {
+                if (cancelled) {
+                    return
+                }
+                setRequests(result)
+                // Ada pengajuan disetujui tapi akun masih tercatat tanpa anak: data sesi sudah usang.
+                if (user?.linkedStudentsCount === 0 && result.some((request) => request.status === 'APPROVED')) {
+                    refreshUser().catch(() => {})
+                }
+            })
+            .catch(() => {
+                // Status pengajuan bersifat tambahan; Beranda tetap bisa dipakai tanpa daftar ini.
+            })
+
+        return () => {
+            cancelled = true
+        }
+        // Cukup sekali saat Beranda dibuka; refreshUser mengganti `user` dan tidak boleh memicu ulang.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
 
     return (
         <>
@@ -165,11 +185,11 @@ function EmptyDashboard() {
                 <BisLogo className="h-12" />
                 <div className="min-w-0 flex-grow">
                     <h1 className="font-display text-[22px] font-bold">Assalamu’alaikum!</h1>
-                    <p className="mt-0.5 truncate text-sm text-subtle">{user?.email ?? 'akun@gmail.com'}</p>
+                    <p className="mt-0.5 truncate text-sm text-subtle">{user?.email}</p>
                 </div>
-                <NotificationButton unread={0} />
+                {isLocked ? null : <AddChildButton />}
             </header>
-            <CompactTopBar title="Assalamu’alaikum!" action={<CompactNotificationLink unread={0} />} />
+            <CompactTopBar title="Assalamu’alaikum!" action={isLocked ? undefined : <CompactAddChildLink />} />
 
             {spmb.registrationUrl ? (
                 <a href={spmb.registrationUrl} target="_blank" rel="noreferrer" aria-labelledby="spmb-h" className="relative flex w-full items-center gap-3 overflow-hidden rounded-3xl bg-primary p-4 text-left text-white">
@@ -186,25 +206,28 @@ function EmptyDashboard() {
             {openRequests.length > 0 ? (
                 <section aria-labelledby="req-h" className="flex flex-col gap-2.5">
                     <h2 id="req-h" className="font-display text-[19px] font-semibold">Status Pengajuan</h2>
-                    {openRequests.map((request) => <ChildRequestCard key={request.id} request={request} />)}
+                    {openRequests.map((request) => <ChildRequestCard key={request.id} request={request} canResubmit={!isLocked} />)}
                 </section>
             ) : null}
 
-            <section aria-labelledby="link-h" className="rounded-3xl bg-card p-[18px] shadow-soft">
-                <div className="flex items-center gap-3.5">
-                    <span aria-hidden="true" className="flex size-[52px] shrink-0 items-center justify-center rounded-2xl bg-pastel-sky text-pastel-sky-fg">
-                        <Link2 className="size-6" />
-                    </span>
-                    <div className="min-w-0 flex-grow">
-                        <h2 id="link-h" className="font-display text-lg font-semibold">Hubungkan Data Peserta Didik</h2>
-                        <p className="mt-0.5 text-[13px] leading-[1.45] text-subtle">Anak sudah bersekolah di BIS? Lihat nilai, absensi &amp; {features.payments ? 'tagihannya' : 'jadwalnya'}.</p>
+            {/* Selama ada pengajuan PENDING, pengajuan baru belum boleh dikirim. */}
+            {isLocked ? null : (
+                <section aria-labelledby="link-h" className="rounded-3xl bg-card p-[18px] shadow-soft">
+                    <div className="flex items-center gap-3.5">
+                        <span aria-hidden="true" className="flex size-[52px] shrink-0 items-center justify-center rounded-2xl bg-pastel-sky text-pastel-sky-fg">
+                            <Link2 className="size-6" />
+                        </span>
+                        <div className="min-w-0 flex-grow">
+                            <h2 id="link-h" className="font-display text-lg font-semibold">Hubungkan Data Peserta Didik</h2>
+                            <p className="mt-0.5 text-[13px] leading-[1.45] text-subtle">Anak sudah bersekolah di BIS? Lihat nilai, absensi &amp; {features.payments ? 'tagihannya' : 'jadwalnya'}.</p>
+                        </div>
                     </div>
-                </div>
-                <Link to="/hubungkan-anak" className="mt-3.5 flex h-[50px] w-full items-center justify-center gap-2 rounded-full bg-primary text-[15px] font-extrabold text-white">
-                    Hubungkan Sekarang
-                    <ArrowRight className="size-[18px]" strokeWidth={2.4} />
-                </Link>
-            </section>
+                    <Link to="/hubungkan-anak" className="mt-3.5 flex h-[50px] w-full items-center justify-center gap-2 rounded-full bg-primary text-[15px] font-extrabold text-white">
+                        Hubungkan Sekarang
+                        <ArrowRight className="size-[18px]" strokeWidth={2.4} />
+                    </Link>
+                </section>
+            )}
 
             <SchoolNews />
         </>
@@ -212,8 +235,16 @@ function EmptyDashboard() {
 }
 
 export default function Dashboard() {
-    const [searchParams] = useSearchParams()
+    const hasLinkedStudent = useHasLinkedStudent()
+    const { activeStudent, isLoading } = useStudent()
 
-    // Pratinjau tampilan akun tanpa peserta didik: buka "/?state=kosong".
-    return searchParams.get('state') === 'kosong' ? <EmptyDashboard /> : <StudentDashboard />
+    if (!hasLinkedStudent) {
+        return <EmptyDashboard />
+    }
+    if (isLoading) {
+        return <StudentDashboardSkeleton />
+    }
+
+    // `linked_students_count` > 0 tapi GET /children kosong (mis. hubungan baru diputus): tampilkan versi belum terhubung.
+    return activeStudent ? <StudentDashboard child={activeStudent} /> : <EmptyDashboard />
 }

@@ -9,6 +9,11 @@ export default defineConfig(({ mode }) => {
   return {
     base: env.VITE_BASE_URL ?? "/",
     plugins: [react(), tailwindcss()],
+    // Origin ini terdaftar di Google Cloud Console untuk login Google.
+    server: {
+      port: 5714,
+      strictPort: true,
+    },
     resolve: {
       alias: {
         "@": path.resolve(__dirname, "./src"),

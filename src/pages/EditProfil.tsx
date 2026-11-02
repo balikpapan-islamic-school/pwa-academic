@@ -4,14 +4,16 @@ import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { FieldShell } from '@/components/kit/field-shell'
 import { FocusPage, focusCardClassName, FormField, SubmitButton } from '@/components/kit/focus-page'
+import { useAuth } from '@/contexts/AuthContext'
 import { useGoBack } from '@/hooks/use-go-back'
-import { fakeRequest, getDummyAccount, saveDummyAccount } from '@/lib/dummy-ui'
+import { ApiError } from '@/services/api-client'
 
 export default function EditProfil() {
     const goBack = useGoBack('/profil')
     const navigate = useNavigate()
-    const [account] = useState(getDummyAccount)
-    const [name, setName] = useState(account.name)
+    const { user, updateName } = useAuth()
+    const initialName = user?.name ?? ''
+    const [name, setName] = useState(initialName)
     const [error, setError] = useState<string>()
     const [isSaving, setIsSaving] = useState(false)
 
@@ -26,14 +28,23 @@ export default function EditProfil() {
 
         setError(undefined)
         setIsSaving(true)
-        await fakeRequest()
-        saveDummyAccount({ name: trimmed })
-        toast.success('Nama wali tersimpan', { description: trimmed })
-        navigate('/profil', { replace: true })
+
+        try {
+            const nextUser = await updateName(trimmed)
+            toast.success('Nama wali tersimpan.', { description: nextUser.name })
+            navigate('/profil', { replace: true })
+        } catch (caughtError) {
+            if (caughtError instanceof ApiError && caughtError.errors?.name?.length) {
+                setError(caughtError.errors.name[0])
+            } else {
+                toast.error(caughtError instanceof Error ? caughtError.message : 'Nama wali gagal disimpan.')
+            }
+            setIsSaving(false)
+        }
     }
 
     return (
-        <FocusPage title="Edit Profil" subtitle="Data akun orang tua / wali." onBack={goBack} isDirty={name.trim() !== account.name}>
+        <FocusPage title="Edit Profil" subtitle="Data akun orang tua / wali." onBack={goBack} isDirty={name.trim() !== initialName}>
             <form onSubmit={handleSubmit} noValidate className={focusCardClassName}>
                 <FormField id="nama-wali" label="Nama Wali" error={error} hint="Nama ini tampil untuk wali kelas, misalnya saat Anda mengajukan izin.">
                     <FieldShell invalid={Boolean(error)}>
@@ -58,7 +69,7 @@ export default function EditProfil() {
                 <FormField id="email-wali" label="Email" hint="Email dipakai untuk masuk dan tidak bisa diubah dari aplikasi.">
                     <div className="flex h-[54px] items-center gap-2.5 rounded-2xl bg-[#F1F6F1] px-3.5 text-[#5F6E64]">
                         <Mail className="size-5 shrink-0" />
-                        <input id="email-wali" value={account.email} readOnly aria-describedby="email-wali-desc" className="min-w-0 flex-grow bg-transparent text-base text-subtle outline-none" />
+                        <input id="email-wali" value={user?.email ?? ''} readOnly aria-describedby="email-wali-desc" className="min-w-0 flex-grow bg-transparent text-base text-subtle outline-none" />
                         <LockKeyhole aria-label="Terkunci" className="size-[18px] shrink-0" />
                     </div>
                 </FormField>

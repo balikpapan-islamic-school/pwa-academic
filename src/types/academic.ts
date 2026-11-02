@@ -10,6 +10,10 @@ export type AuthUser = {
     email: string
     role: UserRole
     avatarInitials: string
+    avatarUrl: string | null
+    // `false` untuk akun Google yang belum membuat kata sandi.
+    hasPassword: boolean
+    linkedStudentsCount: number
 }
 
 export type StudentSummary = {
@@ -24,15 +28,29 @@ export type StudentSummary = {
     semesterLabel: string
     homeroomTeacher: string
     avatarInitials: string
+    photoUrl?: string | null
+    statusActive?: boolean
+    // Hubungan wali dengan anak: `ayah` | `ibu` | `wali`.
+    relation?: string
 }
 
-export type StudentProfile = StudentSummary & {
-    birthplace?: string
-    birthDate?: string
-    gender?: string
-    religion?: string
-    statusActive?: boolean
-    addressLine?: string
+// Profil peserta didik dari GET /me?student_id= (halaman Profil).
+export type StudentProfile = {
+    id: string
+    name: string
+    nickname: string
+    nis: string
+    nisn: string | null
+    className: string
+    statusActive: boolean
+    birthplace: string | null
+    birthDate: string | null
+    gender: 'laki-laki' | 'perempuan' | null
+    // Email & no. HP sudah disamarkan oleh backend.
+    email: string | null
+    phone: string | null
+    homeroomTeacher: string | null
+    photoUrl: string | null
 }
 
 export type ScheduleItem = {

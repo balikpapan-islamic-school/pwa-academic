@@ -21,6 +21,9 @@ export const mockUsers: Record<'wali_siswa' | 'siswa', AuthUser> = {
         email: 'wali@bis.test',
         role: 'wali_siswa',
         avatarInitials: 'AR',
+        avatarUrl: null,
+        hasPassword: true,
+        linkedStudentsCount: 2,
     },
     siswa: {
         id: 'user-siswa-1',
@@ -28,6 +31,9 @@ export const mockUsers: Record<'wali_siswa' | 'siswa', AuthUser> = {
         email: 'siswa@bis.test',
         role: 'siswa',
         avatarInitials: 'AF',
+        avatarUrl: null,
+        hasPassword: true,
+        linkedStudentsCount: 0,
     },
 }
 

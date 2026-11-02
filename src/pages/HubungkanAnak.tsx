@@ -1,14 +1,19 @@
-import { FormEvent, useState } from 'react'
+import { FormEvent, useEffect, useState } from 'react'
 import { ArrowRight, CalendarDays, Clock3, Fingerprint, IdCard, Phone, Send, ShieldCheck } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
+import { toast } from 'sonner'
 import { ChildRequestCard } from '@/components/hubungkan/child-request-card'
 import { FieldShell } from '@/components/kit/field-shell'
 import { FocusPage, focusCardClassName, FormField, SubmitButton, SuccessCard } from '@/components/kit/focus-page'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { Skeleton } from '@/components/ui/skeleton'
 import { useGoBack } from '@/hooks/use-go-back'
-import { ChildLinkRequest, ChildRelationship, childRelationshipLabels, childRequestStatusLabels, dummyChildRequests, dummyStudent, fakeRequest } from '@/lib/dummy-ui'
+import { hasPendingChildRequest } from '@/lib/child-requests'
+import { ChildLinkRequest, ChildRelationship, childRelationshipLabels } from '@/lib/dummy-ui'
 import { formatDate, parseIsoDate, toIsoDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
+import { academicService } from '@/services'
+import { ApiError } from '@/services/api-client'
 
 type Step = 'form' | 'sent'
 
@@ -17,15 +22,8 @@ const relationships: ChildRelationship[] = ['AYAH', 'IBU', 'WALI']
 
 type Errors = { nik?: string, birthDate?: string, nisn?: string, relationship?: string }
 
-// Simulasi aturan backend POST /children/requests (error 422 di errors.nik).
-function validateAgainstDummy(nik: string, requests: ChildLinkRequest[]) {
-    if (nik === dummyStudent.nik) {
-        return 'Anak ini sudah terhubung dengan akun Anda.'
-    }
-    if (requests.some((request) => request.nik === nik && request.status === 'PENDING')) {
-        return 'Pengajuan untuk anak ini masih menunggu verifikasi.'
-    }
-    return null
+function findRelationshipKey(label: string) {
+    return relationships.find((item) => childRelationshipLabels[item].toLowerCase() === label.toLowerCase()) ?? null
 }
 
 function StepIndicator({ current }: { current: number }) {
@@ -48,17 +46,48 @@ function StepIndicator({ current }: { current: number }) {
 }
 
 export default function HubungkanAnak() {
-    const goBack = useGoBack('/?state=kosong')
+    const goBack = useGoBack('/')
+    const location = useLocation()
+    // "Ajukan Ulang" dari Beranda mengirim pengajuan yang ditolak lewat state navigasi.
+    const resubmitted = (location.state as { resubmit?: ChildLinkRequest } | null)?.resubmit
     const today = toIsoDate(new Date())
     const [step, setStep] = useState<Step>('form')
-    const [requests, setRequests] = useState(dummyChildRequests)
-    const [nik, setNik] = useState('')
-    const [birthDate, setBirthDate] = useState('')
-    const [nisn, setNisn] = useState('')
-    const [relationship, setRelationship] = useState<ChildRelationship | null>(null)
+    const [requests, setRequests] = useState<ChildLinkRequest[]>([])
+    const [isRequestsLoaded, setIsRequestsLoaded] = useState(false)
+    const [nik, setNik] = useState(resubmitted?.nik ?? '')
+    const [birthDate, setBirthDate] = useState(resubmitted?.birthDate ?? '')
+    const [nisn, setNisn] = useState(resubmitted?.nisn ?? '')
+    const [relationship, setRelationship] = useState<ChildRelationship | null>(resubmitted ? findRelationshipKey(resubmitted.relationship) : null)
     const [errors, setErrors] = useState<Errors>({})
     const [isConfirmOpen, setIsConfirmOpen] = useState(false)
     const [isSending, setIsSending] = useState(false)
+
+    useEffect(() => {
+        let cancelled = false
+
+        academicService.getChildRequests()
+            .then((result) => {
+                if (!cancelled) {
+                    setRequests(result)
+                }
+            })
+            .catch(() => {
+                if (!cancelled) {
+                    toast.error('Status pengajuan gagal dimuat.', { description: 'Form tetap bisa dikirim.' })
+                }
+            })
+            .finally(() => {
+                if (!cancelled) {
+                    setIsRequestsLoaded(true)
+                }
+            })
+
+        return () => {
+            cancelled = true
+        }
+    }, [])
+
+    const isLocked = hasPendingChildRequest(requests)
 
     function clearError(key: keyof Errors) {
         setErrors((current) => ({ ...current, [key]: undefined }))
@@ -90,36 +119,33 @@ export default function HubungkanAnak() {
     }
 
     async function send() {
-        if (!relationship) {
+        if (!relationship || isLocked) {
             return
         }
 
         setIsSending(true)
-        await fakeRequest()
-        setIsSending(false)
 
-        const nikError = validateAgainstDummy(nik, requests)
-        if (nikError) {
-            setErrors({ nik: nikError })
-            return
+        try {
+            const request = await academicService.createChildRequest({ nik, birthDate, nisn: nisn || null, relationship })
+            setRequests((current) => [request, ...current])
+            setStep('sent')
+            window.scrollTo({ top: 0 })
+        } catch (caughtError) {
+            if (caughtError instanceof ApiError && caughtError.errors) {
+                setErrors({
+                    nik: caughtError.errors.nik?.[0],
+                    birthDate: caughtError.errors.tanggal_lahir?.[0],
+                    nisn: caughtError.errors.nisn?.[0],
+                    relationship: caughtError.errors.hubungan?.[0],
+                })
+            } else if (caughtError instanceof ApiError && caughtError.status === 429) {
+                toast.error('Terlalu banyak pengajuan.', { description: 'Tunggu sebentar, lalu coba lagi.' })
+            } else {
+                toast.error('Pengajuan gagal dikirim.', { description: caughtError instanceof Error ? caughtError.message : undefined })
+            }
+        } finally {
+            setIsSending(false)
         }
-
-        const request: ChildLinkRequest = {
-            id: `req-${Date.now()}`,
-            nik,
-            birthDate,
-            nisn: nisn || null,
-            relationship: childRelationshipLabels[relationship],
-            status: 'PENDING',
-            statusLabel: childRequestStatusLabels.PENDING,
-            note: null,
-            submittedAt: new Date().toISOString(),
-            processedAt: null,
-            student: null,
-        }
-        setRequests((current) => [request, ...current])
-        setStep('sent')
-        window.scrollTo({ top: 0 })
     }
 
     // Isi ulang form dari pengajuan yang ditolak agar wali cukup memperbaiki bagian yang salah.
@@ -127,8 +153,7 @@ export default function HubungkanAnak() {
         setNik(request.nik)
         setBirthDate(request.birthDate)
         setNisn(request.nisn ?? '')
-        const relationshipKey = relationships.find((item) => childRelationshipLabels[item] === request.relationship)
-        setRelationship(relationshipKey ?? null)
+        setRelationship(findRelationshipKey(request.relationship))
         setErrors({})
         setStep('form')
         window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -147,12 +172,25 @@ export default function HubungkanAnak() {
         <section aria-labelledby="req-h" className="mx-5 mt-[22px] flex flex-col gap-2.5">
             <h2 id="req-h" className="ml-1 font-display text-[19px] font-semibold">Status Pengajuan</h2>
             {requests.map((request) => (
-                <ChildRequestCard key={request.id} request={request} onResubmit={resubmit} />
+                <ChildRequestCard key={request.id} request={request} onResubmit={resubmit} canResubmit={!isLocked} />
             ))}
         </section>
     ) : null
 
-    if (step === 'sent') {
+    // Tunggu riwayat dimuat agar form tidak sempat tampil saat masih ada pengajuan PENDING.
+    if (!isRequestsLoaded) {
+        return (
+            <FocusPage title={<>Hubungkan<br />Peserta Didik</>} subtitle="Memuat status pengajuan…" onBack={goBack} headerExtra={<StepIndicator current={0} />}>
+                <div aria-busy="true" className={focusCardClassName}>
+                    <Skeleton className="h-[54px] rounded-2xl" />
+                    <Skeleton className="h-[54px] rounded-2xl" />
+                    <Skeleton className="h-[54px] rounded-2xl" />
+                </div>
+            </FocusPage>
+        )
+    }
+
+    if (step === 'sent' || isLocked) {
         return (
             <FocusPage
                 title={<>Hubungkan<br />Peserta Didik</>}
@@ -162,14 +200,18 @@ export default function HubungkanAnak() {
                 <SuccessCard
                     icon={Clock3}
                     title="Menunggu verifikasi admin"
-                    description="Admin sekolah akan mencocokkan data dengan data peserta didik. Setelah disetujui, data anak langsung tampil di Beranda.">
-                    <Link to="/?state=kosong" className="flex h-14 w-full items-center justify-center gap-2.5 rounded-full bg-primary text-[17px] font-extrabold text-white shadow-[0_10px_22px_rgba(0,130,54,0.28)]">
+                    description={isLocked
+                        ? 'Admin sekolah sedang mencocokkan data pengajuan Anda. Pengajuan anak lain bisa dikirim setelah pengajuan ini selesai diverifikasi.'
+                        : 'Admin sekolah akan mencocokkan data dengan data peserta didik. Setelah disetujui, data anak langsung tampil di Beranda.'}>
+                    <Link to="/" className="flex h-14 w-full items-center justify-center gap-2.5 rounded-full bg-primary text-[17px] font-extrabold text-white shadow-[0_10px_22px_rgba(0,130,54,0.28)]">
                         Kembali ke Beranda
                         <ArrowRight className="size-5" strokeWidth={2.4} />
                     </Link>
-                    <button type="button" onClick={startNew} className="text-sm font-extrabold text-primary">
-                        Ajukan anak lain
-                    </button>
+                    {isLocked ? null : (
+                        <button type="button" onClick={startNew} className="text-sm font-extrabold text-primary">
+                            Ajukan anak lain
+                        </button>
+                    )}
                 </SuccessCard>
                 {requestHistory}
             </FocusPage>

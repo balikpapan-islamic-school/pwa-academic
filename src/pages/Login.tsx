@@ -1,14 +1,15 @@
-import { FormEvent, useEffect, useState } from 'react'
+import { FormEvent, useCallback, useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, Eye, EyeOff, LockKeyhole, Mail } from 'lucide-react'
 import { toast } from 'sonner'
 import { BisLogo } from '@/components/bis-logo'
+import { GoogleSignInButton } from '@/components/google-sign-in-button'
 import { FieldShell } from '@/components/kit/field-shell'
 import { useAuth } from '@/contexts/AuthContext'
 import { ApiError } from '@/services/api-client'
 
 type LoginFieldErrors = {
-    username?: string[]
+    email?: string[]
     password?: string[]
 }
 
@@ -24,24 +25,16 @@ function getReadableLoginError(message: string) {
     return message
 }
 
-function GoogleIcon() {
-    return (
-        <svg viewBox="0 0 48 48" aria-hidden="true" className="size-6">
-            <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z" />
-            <path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z" />
-            <path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z" />
-            <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z" />
-        </svg>
-    )
-}
+const isGoogleEnabled = Boolean(import.meta.env.VITE_GOOGLE_CLIENT_ID)
 
 export default function Login() {
     const navigate = useNavigate()
     const location = useLocation()
-    const { login, sessionMessage, clearSessionMessage } = useAuth()
-    const [identity, setIdentity] = useState('arifin')
-    const [password, setPassword] = useState('password')
+    const { login, loginWithGoogle, sessionMessage, clearSessionMessage } = useAuth()
+    const [email, setEmail] = useState('')
+    const [password, setPassword] = useState('')
     const [isSubmitting, setIsSubmitting] = useState(false)
+    const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [fieldErrors, setFieldErrors] = useState<LoginFieldErrors>({})
     const [showPassword, setShowPassword] = useState(false)
@@ -52,6 +45,37 @@ export default function Login() {
         }
     }, [clearSessionMessage])
 
+    const redirectAfterLogin = useCallback(() => {
+        // Akun tanpa anak terhubung tetap ke Beranda; Beranda menampilkan versi "belum terhubung".
+        const redirectTo = typeof location.state?.from === 'string' ? location.state.from : '/'
+        navigate(redirectTo, { replace: true })
+    }, [location.state, navigate])
+
+    const handleGoogleCredential = useCallback(async (idToken: string) => {
+        setIsGoogleSubmitting(true)
+        setError(null)
+        setFieldErrors({})
+
+        try {
+            const user = await loginWithGoogle(idToken)
+            if (!user.hasPassword && user.linkedStudentsCount === 0) {
+                toast.success('Akun berhasil dibuat', { description: 'Hubungkan peserta didik untuk mulai memantau.' })
+            }
+            redirectAfterLogin()
+        } catch (caughtError) {
+            const message = caughtError instanceof ApiError
+                ? caughtError.errors?.id_token?.[0] ?? caughtError.message
+                : caughtError instanceof Error ? getReadableLoginError(caughtError.message) : 'Login Google gagal diproses.'
+            toast.error(message)
+        } finally {
+            setIsGoogleSubmitting(false)
+        }
+    }, [loginWithGoogle, redirectAfterLogin])
+
+    const handleGoogleLoadError = useCallback((loadError: Error) => {
+        toast.error(loadError.message, { description: 'Periksa koneksi internet, lalu muat ulang halaman.' })
+    }, [])
+
     async function handleSubmit(event: FormEvent<HTMLFormElement>) {
         event.preventDefault()
         setIsSubmitting(true)
@@ -59,17 +83,15 @@ export default function Login() {
         setFieldErrors({})
 
         try {
-            await login(identity, password)
-            const redirectTo = typeof location.state?.from === 'string' ? location.state.from : '/'
-            navigate(redirectTo)
+            await login(email.trim(), password)
+            redirectAfterLogin()
         } catch (caughtError) {
             if (caughtError instanceof ApiError) {
                 const nextFieldErrors = {
-                    // Backend memakai key `username` selama transisi, lalu `email` setelah login email aktif.
-                    username: caughtError.errors?.email ?? caughtError.errors?.username,
+                    email: caughtError.errors?.email,
                     password: caughtError.errors?.password,
                 }
-                const hasFieldErrors = Boolean(nextFieldErrors.username?.length || nextFieldErrors.password?.length)
+                const hasFieldErrors = Boolean(nextFieldErrors.email?.length || nextFieldErrors.password?.length)
                 setError(getReadableLoginError(caughtError.message))
                 setFieldErrors(nextFieldErrors)
                 if (hasFieldErrors && isGenericValidationMessage(caughtError.message)) {
@@ -113,20 +135,21 @@ export default function Login() {
 
                 <div className="flex flex-col gap-1.5">
                     <label htmlFor="identity" className="text-sm font-extrabold">Email</label>
-                    <FieldShell invalid={Boolean(fieldErrors.username?.length)}>
+                    <FieldShell invalid={Boolean(fieldErrors.email?.length)}>
                         <Mail className="size-5 shrink-0" />
                         <input
                             id="identity"
-                            value={identity}
-                            onChange={(event) => setIdentity(event.target.value)}
+                            type="email"
+                            value={email}
+                            onChange={(event) => setEmail(event.target.value)}
                             placeholder="nama@email.com"
                             inputMode="email"
                             autoComplete="email"
-                            aria-invalid={Boolean(fieldErrors.username?.length)}
+                            aria-invalid={Boolean(fieldErrors.email?.length)}
                             className="min-w-0 flex-grow bg-transparent text-base text-ink outline-none"
                         />
                     </FieldShell>
-                    {fieldErrors.username?.map((item) => (
+                    {fieldErrors.email?.map((item) => (
                         <p key={item} className="text-sm font-semibold text-destructive">{item}</p>
                     ))}
                 </div>
@@ -160,7 +183,7 @@ export default function Login() {
 
                 <button
                     type="submit"
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || isGoogleSubmitting}
                     className="mt-1 flex h-14 items-center justify-center gap-2.5 rounded-full bg-primary text-[17px] font-extrabold text-white shadow-[0_10px_22px_rgba(0,130,54,0.28)] disabled:opacity-60">
                     {isSubmitting ? 'Memproses...' : (
                         <>
@@ -171,20 +194,20 @@ export default function Login() {
                 </button>
             </form>
 
-            <div className="mx-8 mb-4 mt-6 flex items-center gap-3 text-[13px] font-bold text-[#5F6E64]">
-                <span className="h-px flex-grow bg-[#CFDCD1]" />
-                atau
-                <span className="h-px flex-grow bg-[#CFDCD1]" />
-            </div>
+            {isGoogleEnabled ? (
+                <>
+                    <div className="mx-8 mb-4 mt-6 flex items-center gap-3 text-[13px] font-bold text-[#5F6E64]">
+                        <span className="h-px flex-grow bg-[#CFDCD1]" />
+                        atau
+                        <span className="h-px flex-grow bg-[#CFDCD1]" />
+                    </div>
 
-            {/* TODO: sambungkan ke alur OAuth Google setelah endpoint backend tersedia. */}
-            <button
-                type="button"
-                onClick={() => toast.info('Masuk dengan Google segera tersedia', { description: 'Untuk sementara gunakan email dan kata sandi.' })}
-                className="mx-5 flex h-14 items-center justify-center gap-3 rounded-full border-2 border-border bg-card text-base font-extrabold text-ink transition-colors hover:bg-[#F7FAF7] active:scale-[0.98]">
-                <GoogleIcon />
-                Lanjutkan dengan Google
-            </button>
+                    <div className="mx-5 flex flex-col items-center gap-2" aria-busy={isGoogleSubmitting}>
+                        <GoogleSignInButton onCredential={handleGoogleCredential} onLoadError={handleGoogleLoadError} />
+                        {isGoogleSubmitting ? <p role="status" className="text-sm font-bold text-subtle">Memproses login Google...</p> : null}
+                    </div>
+                </>
+            ) : null}
 
             <p className="mb-8 mt-auto px-8 pt-8 text-center text-sm leading-normal text-subtle">
                 Belum punya akun? <span className="font-extrabold text-primary">Hubungi admin sekolah</span>

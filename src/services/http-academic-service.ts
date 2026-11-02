@@ -1,59 +1,56 @@
 import { mockGradesByStudentId, mockReportDetailsByReportId, mockReportSummariesByStudentId } from '@/lib/mock-data'
+import { ChildLinkRequest } from '@/lib/dummy-ui'
 import { AcademicService } from '@/services/academic-service'
 import { apiRequest, setAccessToken } from '@/services/api-client'
 import { AuthUser, DashboardData, ScheduleItem, StudentProfile, StudentSummary } from '@/types/academic'
 
+const DEVICE_NAME = 'PWA BIS'
+
+type UserPayload = {
+    id: string
+    name: string
+    email: string
+    role: string
+    avatar_url: string | null
+    has_password: boolean
+    linked_students_count: number
+}
+
 type LoginResponse = {
-    token?: string
-    access_token?: string
-    user?: LoginUserPayload
-    data?: LoginResponseData
-}
-
-type LoginUserPayload = {
-    id?: string | number
-    name?: string
-    full_name?: string
-    email?: string
-    role?: string
-}
-
-type LoginResponseData = {
-    token?: string
-    access_token?: string
-    user?: LoginUserPayload
-    id?: string | number
-    name?: string
-    full_name?: string
-    email?: string
-    role?: string
-}
-
-type MeResponse = {
     message?: string
-    data?: LoginUserPayload
+    data: {
+        token: string
+        expires_at: string
+        user: UserPayload
+    }
+}
+
+type GoogleLoginResponse = LoginResponse & {
+    data: LoginResponse['data'] & { is_new_account: boolean }
+}
+
+type UserResponse = {
+    message?: string
+    data: UserPayload
 }
 
 type StudentProfileResponse = {
     message?: string
-    data?: {
-        id?: string
-        nipd?: string | null
-        nisn?: string | null
-        nama_lengkap?: string
-        nama_panggilan?: string
-        tempat_lahir?: string
-        tanggal_lahir?: string
-        jenis_kelamin?: string
-        agama?: string
-        status_aktif?: boolean
-        sekolah?: {
-            nama?: string
-            jenis?: string
-        }
-        alamat?: {
-            jalan?: string | null
-        }
+    data: {
+        id: string
+        nama_lengkap: string
+        nama_panggilan: string | null
+        nis: string | null
+        nisn: string | null
+        kelas: string | null
+        status_aktif: boolean
+        tempat_lahir: string | null
+        tanggal_lahir: string | null
+        jenis_kelamin: 'laki-laki' | 'perempuan' | null
+        email: string | null
+        no_hp: string | null
+        wali_kelas: string | null
+        foto_url: string | null
     }
 }
 
@@ -132,19 +129,42 @@ type AttendanceSummaryResponse = {
 
 type ChildrenResponse = {
     message?: string
-    data?: Array<{
-        relation_id?: string
-        relationship?: string
-        student?: {
-            id?: string
-            name?: string
-            nickname?: string
-            nis?: string
-            nisn?: string
-            school?: string
-            school_unit?: string
-        }
+    data: Array<{
+        id: string
+        name: string
+        nickname: string | null
+        nis: string | null
+        nisn: string | null
+        school: { id: string, name: string, level: string } | null
+        class_name: string | null
+        relation: string | null
+        status_active: boolean
+        photo_url: string | null
     }>
+}
+
+type ChildRequestPayload = {
+    id: string
+    nik: string
+    tanggal_lahir: string
+    nisn: string | null
+    relationship: string
+    status: ChildLinkRequest['status']
+    status_label: string
+    note: string | null
+    submitted_at: string
+    processed_at: string | null
+    student: { id: string, name: string } | null
+}
+
+type ChildRequestsResponse = {
+    message?: string
+    data: ChildRequestPayload[]
+}
+
+type ChildRequestResponse = {
+    message?: string
+    data: ChildRequestPayload
 }
 
 function buildAvatarInitials(name: string) {
@@ -156,86 +176,51 @@ function buildAvatarInitials(name: string) {
         .join('') || 'US'
 }
 
-function normalizeRole(rawRole: unknown, username: string): AuthUser['role'] {
-    if (typeof rawRole === 'string') {
-        const normalized = rawRole.toLowerCase()
-
-        if (normalized.includes('wali') || normalized.includes('parent') || normalized.includes('ortu')) {
-            return 'wali_siswa'
-        }
-
-        if (normalized.includes('siswa') || normalized.includes('student')) {
-            return 'siswa'
-        }
-    }
-
-    return username.toLowerCase().includes('siswa') ? 'siswa' : 'wali_siswa'
-}
-
 function getMockCompatibleUserId(role: AuthUser['role']) {
     return role === 'siswa' ? 'user-siswa-1' : 'user-wali-1'
 }
 
-function mapLoginResponseToAuthUser(response: LoginResponse, username: string): AuthUser {
-    const token = response.token ?? response.access_token ?? response.data?.token ?? response.data?.access_token
-
-    if (!token) {
-        throw new Error('Login succeeded but access token was not found in response')
-    }
-
-    setAccessToken(token)
-
-    const rawUser: LoginUserPayload = response.user ?? response.data?.user ?? response.data ?? {}
-    const role = normalizeRole(rawUser.role, username)
-    const fallbackName = role === 'siswa' ? 'Ahmad Fauzan' : 'Aisyah Rahma'
-    const fallbackEmail = role === 'siswa' ? 'siswa@bis.test' : 'wali@bis.test'
+function mapUserPayload(payload: UserPayload): AuthUser {
+    const role: AuthUser['role'] = payload.role === 'siswa' ? 'siswa' : 'wali_siswa'
 
     return {
-        // Temporary mock-compatible ID so student context and downstream pages keep working
-        // while linked-student and dashboard endpoints are still using local dummy data.
+        // Temporary mock-compatible ID so notifications and other pages that still read
+        // local dummy data keep working until their endpoints are integrated.
         id: getMockCompatibleUserId(role),
-        name: typeof rawUser.name === 'string' ? rawUser.name : typeof rawUser.full_name === 'string' ? rawUser.full_name : fallbackName,
-        email: typeof rawUser.email === 'string' ? rawUser.email : fallbackEmail,
+        name: payload.name,
+        email: payload.email,
         role,
-        avatarInitials: buildAvatarInitials(typeof rawUser.name === 'string' ? rawUser.name : fallbackName),
+        avatarInitials: buildAvatarInitials(payload.name),
+        avatarUrl: payload.avatar_url,
+        hasPassword: payload.has_password,
+        linkedStudentsCount: payload.linked_students_count,
     }
 }
 
-function mapMeResponseToAuthUser(response: MeResponse): AuthUser {
-    const rawUser = response.data ?? {}
-    const name = typeof rawUser.name === 'string' ? rawUser.name : typeof rawUser.full_name === 'string' ? rawUser.full_name : 'Pengguna BIS'
-    const role = normalizeRole(rawUser.role, typeof rawUser.name === 'string' ? rawUser.name : '')
+function mapLoginResponseToAuthUser(response: LoginResponse): AuthUser {
+    setAccessToken(response.data.token)
 
-    return {
-        // Temporary mock-compatible ID so the rest of the app can continue using
-        // fallback mock services until profile/dashboard/student endpoints are real.
-        id: getMockCompatibleUserId(role),
-        name,
-        email: typeof rawUser.email === 'string' ? rawUser.email : 'user@bis.test',
-        role,
-        avatarInitials: buildAvatarInitials(name),
-    }
+    return mapUserPayload(response.data.user)
 }
 
 function mapStudentProfileResponse(response: StudentProfileResponse): StudentProfile {
-    const data = response.data ?? {}
+    const data = response.data
 
     return {
-        id: data.id ?? 'student-1',
-        name: data.nama_lengkap ?? 'Siswa BIS',
-        nickname: data.nama_panggilan ?? data.nama_lengkap ?? 'Siswa',
-        nis: data.nisn ?? data.nipd ?? '-',
-        unit: data.sekolah?.jenis ?? 'BIS',
-        className: '-',
-        semesterLabel: '-',
-        homeroomTeacher: '-',
-        avatarInitials: buildAvatarInitials(data.nama_lengkap ?? 'Siswa BIS'),
-        birthplace: data.tempat_lahir ?? undefined,
-        birthDate: data.tanggal_lahir ?? undefined,
-        gender: data.jenis_kelamin ?? undefined,
-        religion: data.agama ?? undefined,
-        statusActive: data.status_aktif ?? undefined,
-        addressLine: data.alamat?.jalan ?? undefined,
+        id: data.id,
+        name: data.nama_lengkap,
+        nickname: data.nama_panggilan ?? data.nama_lengkap,
+        nis: data.nis ?? '-',
+        nisn: data.nisn,
+        className: data.kelas ?? '-',
+        statusActive: data.status_aktif,
+        birthplace: data.tempat_lahir,
+        birthDate: data.tanggal_lahir,
+        gender: data.jenis_kelamin,
+        email: data.email,
+        phone: data.no_hp,
+        homeroomTeacher: data.wali_kelas,
+        photoUrl: data.foto_url,
     }
 }
 
@@ -332,24 +317,38 @@ function mapAttendanceSummaryResponse(response: AttendanceSummaryResponse) {
 }
 
 function mapChildrenResponse(response: ChildrenResponse): StudentSummary[] {
-    return (response.data ?? []).map((item) => {
-        const student = item.student ?? {}
-        const name = student.name ?? 'Siswa BIS'
+    return response.data.map((child) => ({
+        id: child.id,
+        name: child.name,
+        nickname: child.nickname ?? child.name.split(' ')[0] ?? child.name,
+        nis: child.nis ?? '-',
+        nisn: child.nisn ?? undefined,
+        unit: child.school?.level ?? 'BIS',
+        schoolName: child.school?.name,
+        className: child.class_name ?? '-',
+        semesterLabel: '-',
+        homeroomTeacher: '-',
+        avatarInitials: buildAvatarInitials(child.name),
+        photoUrl: child.photo_url,
+        statusActive: child.status_active,
+        relation: child.relation ?? undefined,
+    }))
+}
 
-        return {
-            id: student.id ?? item.relation_id ?? crypto.randomUUID(),
-            name,
-            nickname: student.nickname ?? name,
-            nis: student.nis ?? '-',
-            nisn: student.nisn ?? undefined,
-            unit: student.school_unit ?? 'BIS',
-            schoolName: student.school ?? undefined,
-            className: '-',
-            semesterLabel: '-',
-            homeroomTeacher: '-',
-            avatarInitials: buildAvatarInitials(name),
-        }
-    })
+function mapChildRequest(item: ChildRequestPayload): ChildLinkRequest {
+    return {
+        id: item.id,
+        nik: item.nik,
+        birthDate: item.tanggal_lahir,
+        nisn: item.nisn,
+        relationship: item.relationship,
+        status: item.status,
+        statusLabel: item.status_label,
+        note: item.note,
+        submittedAt: item.submitted_at,
+        processedAt: item.processed_at,
+        student: item.student,
+    }
 }
 
 function resolveMockStudentId(studentId: string) {
@@ -365,46 +364,78 @@ function resolveMockReportDetail(reportId: string) {
 }
 
 export const httpAcademicService: AcademicService = {
-    async login(identity, password) {
+    async login(email, password) {
         const response = await apiRequest<LoginResponse>('/auth/login', {
             method: 'POST',
-            body: { username: identity, password },
+            body: { email, password, device_name: DEVICE_NAME },
         })
 
-        return mapLoginResponseToAuthUser(response, identity)
+        return mapLoginResponseToAuthUser(response)
+    },
+
+    async loginWithGoogle(idToken) {
+        const response = await apiRequest<GoogleLoginResponse>('/auth/google', {
+            method: 'POST',
+            body: { id_token: idToken, device_name: DEVICE_NAME },
+        })
+
+        return mapLoginResponseToAuthUser(response)
     },
 
     async getCurrentUser() {
-        const response = await apiRequest<MeResponse>('/auth/me', {
-            headers: {
-                Accept: 'application/json',
-            },
+        const response = await apiRequest<UserResponse>('/auth/me')
+
+        return mapUserPayload(response.data)
+    },
+
+    async updateProfile({ name }) {
+        const response = await apiRequest<UserResponse>('/auth/me', {
+            method: 'PATCH',
+            body: { name },
         })
 
-        return mapMeResponseToAuthUser(response)
+        return mapUserPayload(response.data)
+    },
+
+    async updatePassword({ currentPassword, password, passwordConfirmation }) {
+        await apiRequest('/auth/password', {
+            method: 'PUT',
+            body: {
+                ...(currentPassword ? { current_password: currentPassword } : {}),
+                password,
+                password_confirmation: passwordConfirmation,
+            },
+        })
     },
 
     async logout() {
-        await apiRequest('/auth/logout', {
-            method: 'POST',
-            headers: {
-                Accept: 'application/json',
-            },
-        })
+        await apiRequest('/auth/logout', { method: 'POST' })
     },
 
-    async getStudentProfile() {
-        const response = await apiRequest<StudentProfileResponse>('/me', {
-            headers: {
-                Accept: 'application/json',
-            },
-        })
-
-        return mapStudentProfileResponse(response)
+    getStudentProfile(studentId) {
+        return apiRequest<StudentProfileResponse>(`/me?student_id=${encodeURIComponent(studentId)}`).then(mapStudentProfileResponse)
     },
 
     getLinkedStudents(_userId) {
         return apiRequest<ChildrenResponse>('/children').then(mapChildrenResponse)
+    },
+
+    getChildRequests() {
+        return apiRequest<ChildRequestsResponse>('/children/requests').then((response) => response.data.map(mapChildRequest))
+    },
+
+    async createChildRequest({ nik, birthDate, nisn, relationship }) {
+        const response = await apiRequest<ChildRequestResponse>('/children/requests', {
+            method: 'POST',
+            body: {
+                nik,
+                tanggal_lahir: birthDate,
+                ...(nisn ? { nisn } : {}),
+                hubungan: relationship,
+            },
+        })
+
+        return mapChildRequest(response.data)
     },
 
     getDashboard(studentId) {

@@ -8,9 +8,14 @@ import {
     mockReportDetailsByReportId,
     mockReportSummariesByStudentId,
     mockScheduleByStudentId,
+    mockStudents,
     mockUsers,
 } from '@/lib/mock-data'
+import { ChildLinkRequest, childRelationshipLabels, childRequestStatusLabels, dummyChildRequests, dummyStudent } from '@/lib/dummy-ui'
 import { AcademicService } from '@/services/academic-service'
+import { ApiError } from '@/services/api-client'
+
+let mockChildRequests: ChildLinkRequest[] = [...dummyChildRequests]
 
 function wait<T>(data: T, timeout = 300): Promise<T> {
     return new Promise((resolve) => {
@@ -28,30 +33,84 @@ export const mockAcademicService: AcademicService = {
         return wait(user, 450)
     },
 
+    async loginWithGoogle() {
+        return wait(mockUsers.wali_siswa, 450)
+    },
+
     async getCurrentUser() {
         return wait(mockUsers.wali_siswa, 200)
+    },
+
+    async updateProfile({ name }) {
+        mockUsers.wali_siswa = { ...mockUsers.wali_siswa, name }
+        return wait(mockUsers.wali_siswa, 400)
+    },
+
+    async updatePassword() {
+        mockUsers.wali_siswa = { ...mockUsers.wali_siswa, hasPassword: true }
+        return wait(undefined, 400)
     },
 
     async logout() {
         return wait(undefined, 100)
     },
 
-    async getStudentProfile() {
-        const student = mockLinkedStudentsByUserId['user-siswa-1'][0]
+    async getStudentProfile(studentId) {
+        const student = mockStudents.find((item) => item.id === studentId) ?? mockStudents[0]
 
         return wait({
-            ...student,
-            birthplace: 'Balikpapan',
-            birthDate: '2019-01-01',
-            gender: 'Laki-laki',
-            religion: 'Islam',
+            id: student.id,
+            name: student.name,
+            nickname: student.nickname,
+            nis: student.nis,
+            nisn: student.nisn ?? null,
+            className: student.className,
             statusActive: true,
-            addressLine: 'Jl. Pandan Arum, Balikpapan',
+            birthplace: 'Balikpapan',
+            birthDate: '2010-05-14',
+            gender: 'perempuan',
+            email: 'naura.aulia@bis.sch.id',
+            phone: '0812-xxxx-2210',
+            homeroomTeacher: student.homeroomTeacher,
+            photoUrl: null,
         }, 200)
     },
 
     async getLinkedStudents(userId) {
         return wait(mockLinkedStudentsByUserId[userId] ?? [], 250)
+    },
+
+    async getChildRequests() {
+        return wait(mockChildRequests, 250)
+    },
+
+    // Meniru aturan backend POST /children/requests (error 422 di errors.nik).
+    async createChildRequest({ nik, birthDate, nisn, relationship }) {
+        await wait(undefined, 600)
+
+        if (nik === dummyStudent.nik) {
+            throw new ApiError(422, 'Anak ini sudah terhubung dengan akun Anda.', { nik: ['Anak ini sudah terhubung dengan akun Anda.'] })
+        }
+        if (mockChildRequests.some((request) => request.nik === nik && request.status === 'PENDING')) {
+            throw new ApiError(422, 'Pengajuan untuk anak ini masih menunggu verifikasi.', { nik: ['Pengajuan untuk anak ini masih menunggu verifikasi.'] })
+        }
+
+        const request: ChildLinkRequest = {
+            id: `req-${Date.now()}`,
+            nik,
+            birthDate,
+            nisn,
+            relationship: childRelationshipLabels[relationship],
+            status: 'PENDING',
+            statusLabel: childRequestStatusLabels.PENDING,
+            note: null,
+            submittedAt: new Date().toISOString(),
+            processedAt: null,
+            student: null,
+        }
+        mockChildRequests = [request, ...mockChildRequests]
+
+        return request
     },
 
     async getDashboard(studentId) {

@@ -21,9 +21,11 @@ type ChildRequestCardProps = {
     request: ChildLinkRequest
     // Tanpa onResubmit, "Ajukan Ulang" membuka halaman Hubungkan Peserta Didik.
     onResubmit?: (request: ChildLinkRequest) => void
+    // `false` menyembunyikan "Ajukan Ulang", mis. selama pengajuan pertama masih menunggu verifikasi.
+    canResubmit?: boolean
 }
 
-export function ChildRequestCard({ request, onResubmit }: ChildRequestCardProps) {
+export function ChildRequestCard({ request, onResubmit, canResubmit = true }: ChildRequestCardProps) {
     const style = statusStyles[request.status]
     const Icon = style.icon
 
@@ -53,13 +55,13 @@ export function ChildRequestCard({ request, onResubmit }: ChildRequestCardProps)
                             <span className="font-extrabold">Catatan admin:</span> {request.note}
                         </p>
                     ) : null}
-                    {onResubmit ? (
+                    {!canResubmit ? null : onResubmit ? (
                         <button type="button" onClick={() => onResubmit(request)} className={resubmitClassName}>
                             Ajukan Ulang
                             <ArrowRight className="size-4" strokeWidth={2.4} />
                         </button>
                     ) : (
-                        <Link to="/hubungkan-anak" className={resubmitClassName}>
+                        <Link to="/hubungkan-anak" state={{ resubmit: request }} className={resubmitClassName}>
                             Ajukan Ulang
                             <ArrowRight className="size-4" strokeWidth={2.4} />
                         </Link>

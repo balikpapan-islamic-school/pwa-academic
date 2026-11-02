@@ -20,23 +20,6 @@ export const dummyStudent = {
     attendanceRate: 96,
 }
 
-export type DummyChild = {
-    id: string
-    name: string
-    nickname: string
-    initials: string
-    className: string
-    semester: string
-    school: string
-    avatarClassName: string
-}
-
-// Anak yang terhubung ke akun wali. Lebih dari satu → Beranda menampilkan tombol ganti anak.
-export const dummyChildren: DummyChild[] = [
-    { id: 'naura', name: 'Naura Aulia Putri', nickname: 'Naura', initials: 'NA', className: 'XI IPA 2', semester: 'Ganjil', school: 'SMA Islam Balikpapan', avatarClassName: 'bg-pastel-coral text-pastel-coral-fg' },
-    { id: 'fathan', name: 'Muhammad Fathan', nickname: 'Fathan', initials: 'MF', className: '4A', semester: 'Ganjil', school: 'SD Islam Balikpapan', avatarClassName: 'bg-pastel-sky text-pastel-sky-fg' },
-]
-
 export type ChildRelationship = 'AYAH' | 'IBU' | 'WALI'
 export type ChildRequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED'
 
@@ -67,14 +50,6 @@ export const dummyChildRequests: ChildLinkRequest[] = [
     { id: 'req-3', nik: '6471000000000001', birthDate: '2018-05-10', nisn: '0011223344', relationship: 'Ibu', status: 'PENDING', statusLabel: 'Menunggu Verifikasi', note: null, submittedAt: '2026-11-01T09:12:00+08:00', processedAt: null, student: null },
     { id: 'req-2', nik: '6471000000000002', birthDate: '2016-08-21', nisn: null, relationship: 'Ibu', status: 'REJECTED', statusLabel: 'Ditolak', note: 'Tanggal lahir tidak sesuai data sekolah. Periksa kembali akta kelahiran.', submittedAt: '2026-10-28T19:40:00+08:00', processedAt: '2026-10-29T10:05:00+08:00', student: null },
     { id: 'req-1', nik: '6471015405100003', birthDate: '2010-05-14', nisn: '0101234567', relationship: 'Ibu', status: 'APPROVED', statusLabel: 'Disetujui', note: null, submittedAt: '2026-07-14T08:00:00+08:00', processedAt: '2026-07-15T09:30:00+08:00', student: { id: 'naura', name: 'Naura Aulia Putri' } },
-]
-
-export const dummyPersonalInfo = [
-    { label: 'Tempat, tgl lahir', value: 'Jakarta, 14 Mei 2010' },
-    { label: 'Jenis kelamin', value: 'Perempuan' },
-    { label: 'Email', value: 'naura.aulia@bis.sch.id' },
-    { label: 'No. HP', value: '0812-xxxx-2210' },
-    { label: 'Wali kelas', value: 'Ibu Sari Wulandari' },
 ]
 
 export const dummyCurrentLesson = {
@@ -260,31 +235,6 @@ export const dummyNews: Array<{ id: string, category: DummyNewsCategory, title: 
     { id: 'news-3', category: 'Prestasi', title: 'Tim robotik BIS juara 2 tingkat provinsi', date: '20 Okt 2026 · Humas' },
     { id: 'news-4', category: 'Kegiatan', title: 'Outing class kelas XI ke Kebun Raya Balikpapan', date: '15 Okt 2026 · Humas' },
 ]
-
-// Akun wali yang sedang masuk. Selama belum tersambung API, perubahan nama/kata sandi disimpan di perangkat.
-export type DummyAccount = { name: string, email: string, hasPassword: boolean }
-
-const DUMMY_ACCOUNT_KEY = 'pwa-academic-dummy-account'
-const defaultDummyAccount: DummyAccount = { name: 'Aisyah Rahma', email: 'wali@example.com', hasPassword: true }
-
-export function getDummyAccount(): DummyAccount {
-    try {
-        const stored = window.localStorage.getItem(DUMMY_ACCOUNT_KEY)
-        return stored ? { ...defaultDummyAccount, ...JSON.parse(stored) } : defaultDummyAccount
-    } catch {
-        return defaultDummyAccount
-    }
-}
-
-export function saveDummyAccount(patch: Partial<DummyAccount>) {
-    const next = { ...getDummyAccount(), ...patch }
-    try {
-        window.localStorage.setItem(DUMMY_ACCOUNT_KEY, JSON.stringify(next))
-    } catch {
-        // Penyimpanan tidak tersedia (mode privat); perubahan hanya berlaku di sesi ini.
-    }
-    return next
-}
 
 // Simulasi jeda jaringan untuk form yang belum tersambung ke API.
 export function fakeRequest(timeout = 800) {

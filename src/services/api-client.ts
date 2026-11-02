@@ -23,6 +23,7 @@ export class ApiError extends Error {
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') ?? ''
 const ACCESS_TOKEN_KEY = 'pwa-academic-access-token'
+const NOT_GUARDIAN_MESSAGE = 'Akun bukan wali siswa.'
 
 export function getAccessToken() {
     return window.localStorage.getItem(ACCESS_TOKEN_KEY)
@@ -34,6 +35,13 @@ export function setAccessToken(token: string) {
 
 export function clearAccessToken() {
     window.localStorage.removeItem(ACCESS_TOKEN_KEY)
+}
+
+// Dipanggil saat token habis/dicabut (401) atau akun bukan wali siswa (403), agar sesi diakhiri dari satu tempat.
+let unauthorizedHandler: ((error: ApiError) => void) | null = null
+
+export function setUnauthorizedHandler(handler: ((error: ApiError) => void) | null) {
+    unauthorizedHandler = handler
 }
 
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
@@ -60,11 +68,20 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
             errorPayload = null
         }
 
-        throw new ApiError(
+        const error = new ApiError(
             response.status,
             errorPayload?.message ?? `API request failed with status ${response.status}`,
             errorPayload?.errors
         )
+
+        // Hanya untuk request yang membawa token: 401 dari /auth/google berarti token Google tidak valid, bukan sesi habis.
+        const isNotGuardianAccount = response.status === 403 && error.message === NOT_GUARDIAN_MESSAGE
+
+        if (accessToken && (response.status === 401 || isNotGuardianAccount)) {
+            unauthorizedHandler?.(error)
+        }
+
+        throw error
     }
 
     return response.json() as Promise<T>

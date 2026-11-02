@@ -4,9 +4,10 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { FieldShell } from '@/components/kit/field-shell'
 import { FocusPage, focusCardClassName, FormField, SubmitButton } from '@/components/kit/focus-page'
+import { useAuth } from '@/contexts/AuthContext'
 import { useGoBack } from '@/hooks/use-go-back'
-import { fakeRequest, getDummyAccount, saveDummyAccount } from '@/lib/dummy-ui'
 import { cn } from '@/lib/utils'
+import { ApiError } from '@/services/api-client'
 
 const PASSWORD_MIN = 8
 
@@ -62,9 +63,11 @@ export default function KataSandi() {
     const goBack = useGoBack('/profil')
     const navigate = useNavigate()
     const [searchParams] = useSearchParams()
-    const [account] = useState(getDummyAccount)
+    const { user, updatePassword } = useAuth()
+    const email = user?.email ?? ''
+    // Ditentukan sekali saat halaman dibuka agar judul tidak berubah setelah kata sandi tersimpan.
     // `?mode=buat` untuk melihat tampilan akun Google yang belum punya kata sandi.
-    const isCreating = searchParams.get('mode') === 'buat' || !account.hasPassword
+    const [isCreating] = useState(() => searchParams.get('mode') === 'buat' || user?.hasPassword === false)
     const title = isCreating ? 'Buat Kata Sandi' : 'Ubah Kata Sandi'
 
     const [current, setCurrent] = useState('')
@@ -102,12 +105,32 @@ export default function KataSandi() {
         }
 
         setIsSaving(true)
-        await fakeRequest()
-        saveDummyAccount({ hasPassword: true })
-        toast.success('Kata sandi tersimpan', {
-            description: isCreating ? `Sekarang bisa masuk dengan Google atau ${account.email}.` : 'Gunakan kata sandi baru saat masuk berikutnya.',
-        })
-        navigate('/profil', { replace: true })
+
+        try {
+            await updatePassword({
+                currentPassword: isCreating ? undefined : current,
+                password,
+                passwordConfirmation: confirmation,
+            })
+            toast.success('Kata sandi tersimpan.', {
+                description: isCreating ? `Sekarang bisa masuk dengan Google atau ${email}.` : 'Gunakan kata sandi baru saat masuk berikutnya.',
+            })
+            navigate('/profil', { replace: true })
+        } catch (caughtError) {
+            if (caughtError instanceof ApiError && caughtError.errors) {
+                const passwordErrors = caughtError.errors.password ?? []
+                // Backend menaruh error konfirmasi di key `password`; tampilkan di kolom konfirmasi.
+                const confirmationError = passwordErrors.find((item) => item.toLowerCase().includes('konfirmasi'))
+                setErrors({
+                    current: caughtError.errors.current_password?.[0],
+                    password: passwordErrors.find((item) => item !== confirmationError),
+                    confirmation: confirmationError,
+                })
+            } else {
+                toast.error(caughtError instanceof Error ? caughtError.message : 'Kata sandi gagal disimpan.')
+            }
+            setIsSaving(false)
+        }
     }
 
     return (
@@ -117,7 +140,7 @@ export default function KataSandi() {
                     <div className="flex gap-3 rounded-2xl bg-pastel-mint p-3.5 text-pastel-mint-fg">
                         <KeyRound className="mt-0.5 size-5 shrink-0" />
                         <p className="text-sm font-bold leading-snug">
-                            Akun Anda masuk lewat Google. Buat kata sandi agar tetap bisa masuk dengan email {account.email} bila Google tidak bisa dipakai.
+                            Akun Anda masuk lewat Google. Buat kata sandi agar tetap bisa masuk dengan email {email} bila Google tidak bisa dipakai.
                         </p>
                     </div>
                 ) : (

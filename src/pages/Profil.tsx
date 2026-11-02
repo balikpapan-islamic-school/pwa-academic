@@ -1,12 +1,18 @@
-import { useState } from 'react'
-import { Bell, ChevronRight, CircleHelp, KeyRound, LogOut, LucideIcon, UserRound, Users } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { ArrowRight, Bell, ChevronRight, CircleHelp, KeyRound, Link2, LogOut, LucideIcon, UserRound, Users } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 import { CompactTopBar } from '@/components/kit/compact-top-bar'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { ChildAvatar } from '@/components/dashboard/child-avatar'
+import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '@/contexts/AuthContext'
-import { dummyPersonalInfo, dummyStudent, getDummyAccount } from '@/lib/dummy-ui'
+import { useStudent } from '@/contexts/StudentContext'
+import { useHasLinkedStudent } from '@/hooks/use-has-linked-student'
+import { formatDate, parseIsoDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
+import { academicService } from '@/services'
+import { StudentProfile } from '@/types/academic'
 
 type SettingsRowProps = {
     icon: LucideIcon
@@ -33,11 +39,75 @@ function SettingsRow({ icon: Icon, iconClassName, label, to }: SettingsRowProps)
         : <button type="button" className={className}>{content}</button>
 }
 
+// Foto Google bila ada, selain itu inisial nama wali.
+function AccountAvatar({ name, initials, url, className }: { name: string, initials: string, url: string | null, className: string }) {
+    const [hasError, setHasError] = useState(false)
+
+    if (url && !hasError) {
+        return <img src={url} alt={name} referrerPolicy="no-referrer" onError={() => setHasError(true)} className={cn('object-cover', className)} />
+    }
+
+    return <span aria-hidden="true" className={cn('flex items-center justify-center bg-pastel-violet font-display font-bold text-primary', className)}>{initials}</span>
+}
+
+function buildPersonalInfo(profile: StudentProfile) {
+    const birth = [profile.birthplace, profile.birthDate ? formatDate(parseIsoDate(profile.birthDate)) : null].filter(Boolean).join(', ')
+    const gender = profile.gender === 'laki-laki' ? 'Laki-laki' : profile.gender === 'perempuan' ? 'Perempuan' : null
+
+    return [
+        { label: 'Tempat, tgl lahir', value: birth || '-' },
+        { label: 'Jenis kelamin', value: gender ?? '-' },
+        { label: 'Email', value: profile.email ?? '-' },
+        { label: 'No. HP', value: profile.phone ?? '-' },
+        { label: 'Wali kelas', value: profile.homeroomTeacher ?? '-' },
+    ]
+}
+
+type ProfileState = { studentId: string, status: 'loading' | 'error' } | { studentId: string, status: 'ready', profile: StudentProfile }
+
 export default function Profil() {
-    const { logout } = useAuth()
+    const { user, logout } = useAuth()
+    const hasLinkedStudent = useHasLinkedStudent()
+    const { activeStudent, linkedStudents } = useStudent()
+    const student = hasLinkedStudent ? activeStudent : null
+    const studentIndex = student ? linkedStudents.findIndex((item) => item.id === student.id) : 0
+    const [profileState, setProfileState] = useState<ProfileState | null>(null)
+    const accountName = user?.name ?? ''
+    const accountInitials = user?.avatarInitials ?? ''
+    const accountAvatarUrl = user?.avatarUrl ?? null
     const [notificationsOn, setNotificationsOn] = useState(true)
-    const [account] = useState(getDummyAccount)
     const [isLogoutOpen, setIsLogoutOpen] = useState(false)
+
+    useEffect(() => {
+        if (!student) {
+            return
+        }
+
+        let cancelled = false
+        const studentId = student.id
+        setProfileState({ studentId, status: 'loading' })
+
+        academicService.getStudentProfile(studentId)
+            .then((profile) => {
+                if (!cancelled) {
+                    setProfileState({ studentId, status: 'ready', profile })
+                }
+            })
+            .catch(() => {
+                if (!cancelled) {
+                    setProfileState({ studentId, status: 'error' })
+                }
+            })
+
+        return () => {
+            cancelled = true
+        }
+    }, [student])
+
+    // Abaikan hasil milik anak sebelumnya saat anak aktif baru saja diganti.
+    const currentProfile = profileState && student && profileState.studentId === student.id ? profileState : null
+    const profile = currentProfile?.status === 'ready' ? currentProfile.profile : null
+    const isStudentActive = profile?.statusActive ?? student?.statusActive ?? true
 
     function toggleNotifications() {
         const next = !notificationsOn
@@ -50,36 +120,77 @@ export default function Profil() {
     return (
         // Margin negatif membatalkan padding shell agar header hijau menempel ke tepi layar.
         <div className="-mx-5 -mt-[52px] flex flex-col">
-            <CompactTopBar
-                title={dummyStudent.name}
-                threshold={150}
-                leading={<span aria-hidden="true" className="flex size-9 shrink-0 items-center justify-center rounded-full border-2 border-white bg-pastel-coral font-display text-sm font-bold text-pastel-coral-fg">{dummyStudent.initials}</span>}
-            />
+            {student ? (
+                <CompactTopBar
+                    title={student.name}
+                    threshold={150}
+                    leading={<ChildAvatar student={student} index={studentIndex} className="size-9 border-2 border-white text-sm" />}
+                />
+            ) : (
+                <CompactTopBar
+                    title={accountName}
+                    threshold={150}
+                    leading={<AccountAvatar name={accountName} initials={accountInitials} url={accountAvatarUrl} className="size-9 shrink-0 rounded-full border-2 border-white text-sm" />}
+                />
+            )}
             <div className="relative flex h-[210px] items-start justify-between overflow-hidden rounded-b-[36px] bg-primary px-5 pt-[52px] text-white">
                 <div aria-hidden="true" className="absolute -bottom-[70px] -left-[50px] size-[180px] rounded-full bg-brand-mid" />
                 <h1 className="relative mt-1.5 font-display text-2xl font-bold">Profil Saya</h1>
             </div>
 
-            <section className="relative mx-5 -mt-24 flex flex-col items-center rounded-[28px] bg-card p-5 text-center shadow-float">
-                <div aria-hidden="true" className="-mt-16 flex size-[88px] items-center justify-center rounded-full border-4 border-white bg-pastel-coral font-display text-3xl font-bold text-pastel-coral-fg shadow-[0_6px_16px_rgba(0,0,0,0.14)]">
-                    {dummyStudent.initials}
-                </div>
-                <h2 className="mt-3 font-display text-[22px] font-bold">{dummyStudent.name}</h2>
-                <p className="mt-1 text-sm text-subtle">NIS {dummyStudent.nis} · {dummyStudent.className}</p>
-                <span className="mt-2.5 rounded-full bg-pastel-mint px-3 py-1.5 text-xs font-extrabold text-pastel-mint-fg">Siswa Aktif</span>
-            </section>
+            {student ? (
+                <>
+                    <section className="relative mx-5 -mt-24 flex flex-col items-center rounded-[28px] bg-card p-5 text-center shadow-float">
+                        <ChildAvatar student={{ ...student, photoUrl: profile?.photoUrl ?? student.photoUrl }} index={studentIndex} className="-mt-16 size-[88px] border-4 border-white text-3xl shadow-[0_6px_16px_rgba(0,0,0,0.14)]" />
+                        <h2 className="mt-3 font-display text-[22px] font-bold">{student.name}</h2>
+                        <p className="mt-1 text-sm text-subtle">{[`NIS ${student.nis}`, student.className !== '-' ? student.className : null].filter(Boolean).join(' · ')}</p>
+                        <span className={cn('mt-2.5 rounded-full px-3 py-1.5 text-xs font-extrabold', isStudentActive ? 'bg-pastel-mint text-pastel-mint-fg' : 'bg-muted text-subtle')}>
+                            {isStudentActive ? 'Siswa Aktif' : 'Tidak Aktif'}
+                        </span>
+                    </section>
 
-            <section aria-labelledby="data-h" className="mx-5 mt-[22px]">
-                <h3 id="data-h" className="mb-2.5 ml-1 font-display text-lg font-semibold">Data Pribadi</h3>
-                <div className="rounded-3xl bg-card px-4 py-1">
-                    {dummyPersonalInfo.map((item) => (
-                        <div key={item.label} className="flex items-center gap-3 border-b border-muted py-3 last:border-b-0">
-                            <span className="w-[120px] shrink-0 text-[13px] font-bold text-subtle">{item.label}</span>
-                            <span className="min-w-0 flex-grow break-words text-right text-sm font-bold">{item.value}</span>
+                    <section aria-labelledby="data-h" className="mx-5 mt-[22px]">
+                        <h3 id="data-h" className="mb-2.5 ml-1 font-display text-lg font-semibold">Data Pribadi</h3>
+                        <div className="rounded-3xl bg-card px-4 py-1" aria-busy={currentProfile?.status === 'loading'}>
+                            {profile ? buildPersonalInfo(profile).map((item) => (
+                                <div key={item.label} className="flex items-center gap-3 border-b border-muted py-3 last:border-b-0">
+                                    <span className="w-[120px] shrink-0 text-[13px] font-bold text-subtle">{item.label}</span>
+                                    <span className="min-w-0 flex-grow break-words text-right text-sm font-bold">{item.value}</span>
+                                </div>
+                            )) : currentProfile?.status === 'error' ? (
+                                <p className="py-4 text-center text-sm text-subtle">Data pribadi belum dapat dimuat. Coba lagi nanti.</p>
+                            ) : (
+                                [0, 1, 2, 3, 4].map((item) => (
+                                    <div key={item} className="flex items-center justify-between gap-3 border-b border-muted py-3.5 last:border-b-0">
+                                        <Skeleton className="h-4 w-24" />
+                                        <Skeleton className="h-4 w-32" />
+                                    </div>
+                                ))
+                            )}
                         </div>
-                    ))}
-                </div>
-            </section>
+                    </section>
+                </>
+            ) : (
+                <>
+                    <section className="relative mx-5 -mt-24 flex flex-col items-center rounded-[28px] bg-card p-5 text-center shadow-float">
+                        <AccountAvatar name={accountName} initials={accountInitials} url={accountAvatarUrl} className="-mt-16 size-[88px] rounded-full border-4 border-white text-3xl shadow-[0_6px_16px_rgba(0,0,0,0.14)]" />
+                        <h2 className="mt-3 font-display text-[22px] font-bold">{accountName}</h2>
+                        <p className="mt-1 max-w-full truncate text-sm text-subtle">{user?.email}</p>
+                        <span className="mt-2.5 rounded-full bg-pastel-sun px-3 py-1.5 text-xs font-extrabold text-[#6B4A00]">Belum terhubung ke peserta didik</span>
+                    </section>
+
+                    <Link to="/hubungkan-anak" className="mx-5 mt-[22px] flex items-center gap-3.5 rounded-3xl bg-card p-4">
+                        <span aria-hidden="true" className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-pastel-sky text-pastel-sky-fg">
+                            <Link2 className="size-5" />
+                        </span>
+                        <span className="flex min-w-0 flex-grow flex-col">
+                            <span className="text-[15px] font-extrabold">Hubungkan Data Peserta Didik</span>
+                            <span className="text-[13px] text-subtle">Data anak tampil setelah disetujui sekolah.</span>
+                        </span>
+                        <ArrowRight className="size-5 shrink-0 text-primary" strokeWidth={2.4} />
+                    </Link>
+                </>
+            )}
 
             <section aria-labelledby="akun-h" className="mx-5 mt-[22px]">
                 <h3 id="akun-h" className="mb-2.5 ml-1 font-display text-lg font-semibold">Akun Orang Tua / Wali</h3>
@@ -88,8 +199,8 @@ export default function Profil() {
                         <UserRound className="size-5" />
                     </span>
                     <span className="flex min-w-0 flex-grow flex-col">
-                        <span className="truncate text-[15px] font-extrabold">{account.name}</span>
-                        <span className="truncate text-[13px] text-subtle">{account.email}</span>
+                        <span className="truncate text-[15px] font-extrabold">{user?.name}</span>
+                        <span className="truncate text-[13px] text-subtle">{user?.email}</span>
                     </span>
                     <span className="shrink-0 text-[13px] font-extrabold text-primary">Ubah</span>
                 </Link>
@@ -99,7 +210,7 @@ export default function Profil() {
                 <h3 id="set-h" className="mb-2.5 ml-1 font-display text-lg font-semibold">Pengaturan</h3>
                 <div className="rounded-3xl bg-card px-2 py-1">
                     <SettingsRow icon={Users} iconClassName="bg-pastel-violet text-primary" label="Data Orang Tua / Wali" />
-                    <SettingsRow icon={KeyRound} iconClassName="bg-pastel-mint text-[#0F7A73]" label={account.hasPassword ? 'Ubah Kata Sandi' : 'Buat Kata Sandi'} to="/profil/kata-sandi" />
+                    <SettingsRow icon={KeyRound} iconClassName="bg-pastel-mint text-[#0F7A73]" label={user?.hasPassword !== false ? 'Ubah Kata Sandi' : 'Buat Kata Sandi'} to="/profil/kata-sandi" />
                     <div className="flex min-h-14 items-center gap-3 px-2">
                         <span aria-hidden="true" className="flex size-10 items-center justify-center rounded-xl bg-pastel-sun text-[#9A6400]">
                             <Bell className="size-5" />

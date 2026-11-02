@@ -1,12 +1,10 @@
-import { NavLink, useLocation, useSearchParams } from 'react-router-dom'
+import { NavLink } from 'react-router-dom'
 import { mainMenu } from '@/config/menu'
+import { useHasLinkedStudent } from '@/hooks/use-has-linked-student'
 import { cn } from '@/lib/utils'
 
 export function AppBottomNav() {
-    const location = useLocation()
-    const [searchParams] = useSearchParams()
-    // Sementara mengikuti pratinjau Beranda tanpa peserta didik ("/?state=kosong").
-    const hasStudent = !(location.pathname === '/' && searchParams.get('state') === 'kosong')
+    const hasStudent = useHasLinkedStudent()
 
     return (
         <nav aria-label="Navigasi utama" className="fixed inset-x-0 bottom-0 z-40">

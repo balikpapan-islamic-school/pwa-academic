@@ -1,8 +1,9 @@
-import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom'
 import { AppLayout } from './components/app-layout'
 import { ProtectedRoute } from './components/protected-route'
 import { features } from './config/app'
 import { useAuth } from './contexts/AuthContext'
+import { useHasLinkedStudent } from './hooks/use-has-linked-student'
 import Absensi from './pages/Absensi'
 import AjukanIzin from './pages/AjukanIzin'
 import Akademik from './pages/Akademik'
@@ -48,6 +49,13 @@ function PublicRoute({ page }: { page: 'login' | 'onboarding' }) {
     return page === 'login' ? <Login /> : <Onboarding />
 }
 
+// Halaman data peserta didik; akun yang belum terhubung diarahkan ke Beranda versi "belum terhubung".
+function RequireLinkedStudent() {
+    const hasLinkedStudent = useHasLinkedStudent()
+
+    return hasLinkedStudent ? <Outlet /> : <Navigate to="/" replace />
+}
+
 export default function Router() {
     return (
         <Routes>
@@ -57,25 +65,29 @@ export default function Router() {
             <Route element={<ProtectedRoute />}>
                 {/* Alur fokus tanpa navigasi bawah. */}
                 <Route path="/hubungkan-anak" element={<HubungkanAnak />} />
-                <Route path="/absensi/izin" element={<AjukanIzin />} />
+                <Route element={<RequireLinkedStudent />}>
+                    <Route path="/absensi/izin" element={<AjukanIzin />} />
+                </Route>
                 <Route path="/profil/edit" element={<EditProfil />} />
                 <Route path="/profil/kata-sandi" element={<KataSandi />} />
                 <Route element={<AppLayout />}>
                     <Route path="/" element={<Dashboard />} />
-                    <Route path="/akademik" element={<Akademik />} />
-                    <Route path="/jadwal" element={<Navigate to="/akademik?tab=kelas" replace />} />
-                    <Route path="/absensi" element={<Absensi />} />
-                    <Route path="/nilai" element={<Navigate to="/akademik" replace />} />
-                    {features.payments ? (
-                        <>
-                            <Route path="/pembayaran" element={<Pembayaran />} />
-                            <Route path="/pembayaran/:paymentId" element={<PembayaranVirtualAccount />} />
-                        </>
-                    ) : null}
-                    <Route path="/rapor" element={<Rapor />} />
-                    <Route path="/rapor/:reportId" element={<RaporDetail />} />
+                    <Route element={<RequireLinkedStudent />}>
+                        <Route path="/akademik" element={<Akademik />} />
+                        <Route path="/jadwal" element={<Navigate to="/akademik?tab=kelas" replace />} />
+                        <Route path="/absensi" element={<Absensi />} />
+                        <Route path="/nilai" element={<Navigate to="/akademik" replace />} />
+                        {features.payments ? (
+                            <>
+                                <Route path="/pembayaran" element={<Pembayaran />} />
+                                <Route path="/pembayaran/:paymentId" element={<PembayaranVirtualAccount />} />
+                            </>
+                        ) : null}
+                        <Route path="/rapor" element={<Rapor />} />
+                        <Route path="/rapor/:reportId" element={<RaporDetail />} />
+                        <Route path="/pilih-anak" element={<PilihAnak />} />
+                    </Route>
                     <Route path="/profil" element={<Profil />} />
-                    <Route path="/pilih-anak" element={<PilihAnak />} />
                     <Route path="/notifikasi" element={<Notifikasi />} />
                 </Route>
             </Route>
