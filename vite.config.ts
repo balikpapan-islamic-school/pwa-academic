@@ -4,6 +4,9 @@ import react from "@vitejs/plugin-react"
 import { defineConfig, loadEnv } from "vite"
 import { VitePWA } from "vite-plugin-pwa"
 
+// Popup login Google mengirim id_token lewat window.postMessage; COOP ini mengizinkannya (sama dengan docker/nginx.conf).
+const googleSignInHeaders = { "Cross-Origin-Opener-Policy": "same-origin-allow-popups" }
+
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd())
   const appName = env.VITE_APP_NAME || "BIS - Student"
@@ -61,6 +64,10 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 5714,
       strictPort: true,
+      headers: googleSignInHeaders,
+    },
+    preview: {
+      headers: googleSignInHeaders,
     },
     resolve: {
       alias: {

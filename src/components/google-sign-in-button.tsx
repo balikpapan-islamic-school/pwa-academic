@@ -3,7 +3,7 @@ import { useEffect, useRef } from 'react'
 type GoogleCredentialResponse = { credential: string }
 
 type GoogleAccountsId = {
-    initialize: (config: { client_id: string, callback: (response: GoogleCredentialResponse) => void, ux_mode: 'popup' }) => void
+    initialize: (config: { client_id: string, callback: (response: GoogleCredentialResponse) => void, ux_mode: 'popup', use_fedcm_for_button?: boolean }) => void
     renderButton: (parent: HTMLElement, options: Record<string, unknown>) => void
 }
 
@@ -68,6 +68,8 @@ export function GoogleSignInButton({ onCredential, onLoadError }: GoogleSignInBu
                 client_id: clientId,
                 callback: (response) => onCredential(response.credential),
                 ux_mode: 'popup',
+                // Browser yang mendukung FedCM (Chrome) memakai dialog bawaan browser, bukan popup + postMessage.
+                use_fedcm_for_button: true,
             })
 
             googleId.renderButton(container, {

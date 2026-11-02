@@ -23,6 +23,12 @@
   [headers.values]
     Cache-Control = "no-cache"
 
+# Popup login Google mengirim id_token lewat window.postMessage; tanpa ini browser bisa memblokirnya.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Cross-Origin-Opener-Policy = "same-origin-allow-popups"
+
 # File hasil build memakai hash di namanya, aman di-cache lama.
 [[headers]]
   for = "/assets/*"
