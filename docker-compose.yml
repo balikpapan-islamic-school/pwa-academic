@@ -1,0 +1,25 @@
+# Deploy di Coolify: pilih build pack "Docker Compose", lalu atur domain service `web` di UI Coolify.
+# Variabel ${...} di bawah muncul di tab Environment Variables Coolify. Semuanya dipakai saat BUILD,
+# jadi setiap perubahan nilai perlu Redeploy (bukan sekadar Restart).
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VITE_APP_NAME: ${VITE_APP_NAME:-BIS - Student}
+        VITE_DATA_SOURCE: ${VITE_DATA_SOURCE:-api}
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:?Isi URL API, mis. https://api.contoh.sch.id/api/v1}
+        VITE_GOOGLE_CLIENT_ID: ${VITE_GOOGLE_CLIENT_ID:-}
+        VITE_SPMB_SCHOOL_YEAR: ${VITE_SPMB_SCHOOL_YEAR:-}
+        VITE_SPMB_URL: ${VITE_SPMB_URL:-}
+    restart: unless-stopped
+    # Coolify meneruskan domain ke port ini lewat proxy-nya; tidak perlu `ports`.
+    expose:
+      - "80"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/healthz"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3

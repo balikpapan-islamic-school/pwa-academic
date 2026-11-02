@@ -11,7 +11,7 @@ type AppConfigType = {
 }
 
 export const appConfig: AppConfigType = {
-    name: import.meta.env.VITE_APP_NAME ?? 'BIS - Student',
+    name: import.meta.env.VITE_APP_NAME || 'BIS - Student',
     github: {
         title: 'PWA - ACADEMIC',
         url: 'https://github.com/balikpapan-islamic-school/pwa-academic',
@@ -30,7 +30,8 @@ export const features = {
 // SPMB dikelola sistem terpisah; banner di Beranda (wali belum terhubung) hanya menautkan ke sana.
 // Banner disembunyikan bila URL pendaftaran tidak diisi.
 export const spmb = {
-    schoolYear: import.meta.env.VITE_SPMB_SCHOOL_YEAR ?? '2027/2028',
+    // `||` agar nilai kosong dari build args Docker tetap memakai bawaan.
+    schoolYear: import.meta.env.VITE_SPMB_SCHOOL_YEAR || '2027/2028',
     registrationUrl: import.meta.env.VITE_SPMB_URL ?? '',
 }
 

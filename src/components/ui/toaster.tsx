@@ -23,6 +23,8 @@ export function Toaster() {
                     content: 'flex min-w-0 flex-col gap-0.5',
                     title: 'text-sm font-extrabold leading-snug',
                     description: 'text-[13px] leading-snug text-[#C8D8CD]',
+                    actionButton: 'ml-auto h-9 shrink-0 rounded-full bg-cta px-3.5 text-[13px] font-extrabold text-ink',
+                    cancelButton: 'order-last h-9 shrink-0 rounded-full px-2 text-[13px] font-bold text-[#C8D8CD]',
                 },
             }}
         />

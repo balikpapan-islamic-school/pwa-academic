@@ -1,0 +1,19 @@
+node_modules
+dist
+dist-ssr
+.git
+.github
+.vscode
+.idea
+.temp
+.agents
+.claude
+docs
+*.log
+# .env lokal berisi URL API development; nilai produksi dikirim lewat build args.
+.env
+.env.*
+!.env.example
+Dockerfile
+docker-compose.yml
+.dockerignore

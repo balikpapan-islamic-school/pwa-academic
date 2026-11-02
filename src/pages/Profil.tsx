@@ -3,6 +3,7 @@ import { ArrowRight, Bell, ChevronRight, CircleHelp, KeyRound, Link2, LogOut, Lu
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 import { CompactTopBar } from '@/components/kit/compact-top-bar'
+import { InstallAppSettingsRow } from '@/components/pwa/install-app'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { ChildAvatar } from '@/components/dashboard/child-avatar'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -261,6 +262,7 @@ export default function Profil() {
                             <span className="size-[26px] rounded-full bg-white shadow-[0_2px_4px_rgba(0,0,0,0.2)]" />
                         </button>
                     </div>
+                    <InstallAppSettingsRow />
                     <SettingsRow icon={CircleHelp} iconClassName="bg-pastel-sky text-[#2F6FD6]" label="Pusat Bantuan" />
                 </div>
             </section>

@@ -8,6 +8,7 @@ import { ChildSwitcher } from '@/components/dashboard/child-switcher'
 import { SchoolNews } from '@/components/dashboard/school-news'
 import { ChildRequestCard } from '@/components/hubungkan/child-request-card'
 import { CompactTopBar } from '@/components/kit/compact-top-bar'
+import { InstallAppCard } from '@/components/pwa/install-app'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '@/contexts/AuthContext'
 import { useStudent } from '@/contexts/StudentContext'
@@ -190,6 +191,8 @@ function StudentDashboard({ child }: { child: StudentSummary }) {
                 </Link>
             ) : null}
 
+            <InstallAppCard />
+
             <SchoolNews />
         </>
     )
@@ -275,6 +278,8 @@ function EmptyDashboard() {
                     </Link>
                 </section>
             )}
+
+            <InstallAppCard />
 
             <SchoolNews />
         </>

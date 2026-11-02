@@ -1,4 +1,5 @@
 import { BrowserRouter, HashRouter } from 'react-router'
+import { PwaUpdatePrompt } from './components/pwa-update-prompt'
 import { Toaster } from './components/ui/toaster'
 import { AuthProvider } from './contexts/AuthContext'
 import { NotificationsProvider } from './contexts/NotificationsContext'
@@ -17,6 +18,7 @@ export default function App() {
                         <AppRouter>
                             <Router />
                             <Toaster />
+                            <PwaUpdatePrompt />
                         </AppRouter>
                     </NotificationsProvider>
                 </StudentProvider>
