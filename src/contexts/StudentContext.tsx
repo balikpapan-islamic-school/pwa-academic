@@ -18,7 +18,8 @@ export function StudentProvider({ children }: { children: ReactNode }) {
     const { user } = useAuth()
     const [activeStudent, setActiveStudent] = useState<StudentSummary | null>(null)
     const [linkedStudents, setLinkedStudents] = useState<StudentSummary[]>([])
-    const [isLoading, setIsLoading] = useState(false)
+    // Mulai true agar halaman tidak sempat menganggap "belum ada peserta didik" sebelum data dimuat.
+    const [isLoading, setIsLoading] = useState(true)
 
     useEffect(() => {
         let cancelled = false
@@ -26,6 +27,7 @@ export function StudentProvider({ children }: { children: ReactNode }) {
         if (!user) {
             setActiveStudent(null)
             setLinkedStudents([])
+            setIsLoading(false)
             return
         }
 
@@ -68,6 +70,12 @@ export function StudentProvider({ children }: { children: ReactNode }) {
                 window.localStorage.setItem(STORAGE_KEY, nextActive.id)
             }
             setIsLoading(false)
+        }).catch(() => {
+            if (!cancelled) {
+                setLinkedStudents([])
+                setActiveStudent(null)
+                setIsLoading(false)
+            }
         })
 
         return () => {

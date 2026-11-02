@@ -4,8 +4,8 @@
   "description": "PWA informasi akademik untuk siswa dan wali siswa Balikpapan Islamic School.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#020617",
-  "theme_color": "#0f172a",
+  "background_color": "#F2F6F2",
+  "theme_color": "#008236",
   "icons": [
     {
       "src": "/icon-192.png",

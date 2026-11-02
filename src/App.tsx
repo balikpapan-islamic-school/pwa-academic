@@ -1,4 +1,5 @@
 import { BrowserRouter, HashRouter } from 'react-router'
+import { Toaster } from './components/ui/toaster'
 import { AuthProvider } from './contexts/AuthContext'
 import { NotificationsProvider } from './contexts/NotificationsContext'
 import { StudentProvider } from './contexts/StudentContext'
@@ -15,6 +16,7 @@ export default function App() {
                     <NotificationsProvider>
                         <AppRouter>
                             <Router />
+                            <Toaster />
                         </AppRouter>
                     </NotificationsProvider>
                 </StudentProvider>

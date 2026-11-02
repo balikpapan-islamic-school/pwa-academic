@@ -1,237 +1,207 @@
-import { useEffect, useState } from 'react'
-import { ArrowRight, ArrowUpRight, BookOpen, CreditCard, FileBadge2, Newspaper, UserRound } from 'lucide-react'
-import { Link } from 'react-router-dom'
-import { PageHeader, PageHeaderHeading } from '@/components/page-header'
-import { PageSkeleton } from '@/components/shared/page-skeleton'
-import { SectionHeading } from '@/components/shared/section-heading'
-import { StatusBadge } from '@/components/shared/status-badge'
-import { Alert, AlertAction, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
-import { useStudent } from '@/contexts/StudentContext'
-import { academicService } from '@/services'
-import { AgendaItem, DashboardData, NewsItem, SchoolAlert } from '@/types/academic'
+import { ReactNode, useState } from 'react'
+import { AlertTriangle, ArrowRight, Bell, BookOpen, CalendarCheck, Clock3, Link2, Wallet } from 'lucide-react'
+import { Link, useSearchParams } from 'react-router-dom'
+import { BisLogo } from '@/components/bis-logo'
+import { features } from '@/config/app'
+import { ChildSwitcher } from '@/components/dashboard/child-switcher'
+import { SchoolNews } from '@/components/dashboard/school-news'
+import { CompactTopBar } from '@/components/kit/compact-top-bar'
+import { useAuth } from '@/contexts/AuthContext'
+import { dummyBills, dummyChildren, dummyCurrentLesson, dummyGradeEntries, dummyNextLessons, dummySpmb, dummyStudent, dummyTodayLessonCount, isNewGrade } from '@/lib/dummy-ui'
+import { formatCurrency } from '@/lib/format'
+import { cn } from '@/lib/utils'
 
-const dummySchoolAlert: SchoolAlert = {
-    id: 'dashboard-alert-1',
-    title: 'Pengumuman Kegiatan Pekan Ini',
-    message: 'Mohon siswa hadir tepat waktu untuk rangkaian kegiatan akademik dan pembinaan yang berlangsung sepanjang pekan ini.',
-    tone: 'info',
-    actionLabel: 'Lihat KBM',
-    actionHref: '/jadwal',
+function NotificationButton({ unread }: { unread: number }) {
+    return (
+        <Link
+            to="/notifikasi"
+            aria-label={unread > 0 ? `Notifikasi, ${unread} baru` : 'Notifikasi'}
+            className="relative flex size-12 shrink-0 items-center justify-center rounded-full bg-card shadow-chip">
+            <Bell className="size-[22px]" />
+            {unread > 0 ? (
+                <span aria-hidden="true" className="absolute right-3 top-[11px] size-[9px] rounded-full border-2 border-white bg-[#E5484D]" />
+            ) : null}
+        </Link>
+    )
 }
 
-const dummyAgendas: AgendaItem[] = [
-    { id: 'dashboard-agenda-1', date: '21 Apr 2026', title: 'Simulasi UTS Kelas 6', scope: 'SDIT BIS', location: 'Gedung A' },
-    { id: 'dashboard-agenda-2', date: '24 Apr 2026', title: 'Tahfidz Akbar Yayasan', scope: 'Yayasan BIS', location: 'Masjid Sekolah' },
-    { id: 'dashboard-agenda-3', date: '28 Apr 2026', title: 'Pertemuan Wali Murid', scope: 'SDIT', location: 'Aula Utama' },
-]
+function CompactNotificationLink({ unread }: { unread: number }) {
+    return (
+        <Link to="/notifikasi" aria-label={unread > 0 ? `Notifikasi, ${unread} baru` : 'Notifikasi'} className="relative flex size-10 shrink-0 items-center justify-center rounded-full bg-white/[0.18]">
+            <Bell className="size-5" />
+            {unread > 0 ? <span aria-hidden="true" className="absolute right-2 top-2 size-2 rounded-full border border-white bg-[#E5484D]" /> : null}
+        </Link>
+    )
+}
 
-const dummyNews: NewsItem[] = [
-    { id: 'dashboard-news-1', title: 'Program Literasi Pagi Dimulai', summary: 'Program membaca 15 menit sebelum pelajaran pertama dimulai kembali diberlakukan untuk seluruh siswa.', date: '17 Apr 2026', category: 'Sekolah' },
-    { id: 'dashboard-news-2', title: 'Tim Olimpiade BIS Raih Juara', summary: 'Siswa BIS meraih hasil baik pada kompetisi tingkat kota dan membawa pulang beberapa penghargaan.', date: '15 Apr 2026', category: 'Prestasi' },
-    { id: 'dashboard-news-3', title: 'Jadwal Ekstrakurikuler Diperbarui', summary: 'Beberapa kegiatan ekstrakurikuler mengalami penyesuaian jadwal efektif mulai pekan ini.', date: '12 Apr 2026', category: 'Kegiatan' },
-]
+function ModuleCard({ to, label, meta, icon, className, iconClassName, metaClassName }: { to: string, label: string, meta: string, icon: ReactNode, className: string, iconClassName: string, metaClassName: string }) {
+    return (
+        <Link to={to} className={cn('flex min-h-[140px] flex-col rounded-3xl p-4 text-ink', className)}>
+            <span aria-hidden="true" className={cn('flex size-[46px] items-center justify-center rounded-[14px] bg-card', iconClassName)}>{icon}</span>
+            <span className="mt-auto pt-3 font-display text-lg font-semibold">{label}</span>
+            <span className={cn('flex items-center justify-between text-[13px]', metaClassName)}>
+                {meta}
+                <ArrowRight className="size-[18px]" strokeWidth={2.4} />
+            </span>
+        </Link>
+    )
+}
 
-export default function Dashboard() {
-    const { activeStudent } = useStudent()
-    const [data, setData] = useState<DashboardData | null>(null)
-    const [isLoading, setIsLoading] = useState(true)
+const ACTIVE_CHILD_KEY = 'pwa-academic-active-child'
 
-    useEffect(() => {
-        let cancelled = false
+function readActiveChildId() {
+    try {
+        const stored = window.localStorage.getItem(ACTIVE_CHILD_KEY)
+        return dummyChildren.some((child) => child.id === stored) ? stored! : dummyChildren[0].id
+    } catch {
+        return dummyChildren[0].id
+    }
+}
 
-        if (!activeStudent) {
-            setData(null)
-            setIsLoading(false)
-            return
+function StudentDashboard() {
+    const [activeChildId, setActiveChildId] = useState(readActiveChildId)
+    const child = dummyChildren.find((item) => item.id === activeChildId) ?? dummyChildren[0]
+    const hasManyChildren = dummyChildren.length > 1
+
+    function selectChild(id: string) {
+        setActiveChildId(id)
+        try {
+            window.localStorage.setItem(ACTIVE_CHILD_KEY, id)
+        } catch {
+            // Pilihan anak cukup bertahan selama sesi bila storage diblokir.
         }
-
-        setIsLoading(true)
-
-        academicService.getDashboard(activeStudent.id).then((result) => {
-            if (!cancelled) {
-                setData(result)
-                setIsLoading(false)
-            }
-        })
-
-        return () => {
-            cancelled = true
-        }
-    }, [activeStudent])
-
-    if (isLoading || !data) {
-        return <PageSkeleton />
     }
 
-    const shortcuts = [
-        {
-            label: 'Profil',
-            href: '/profil',
-            icon: UserRound,
-            iconClassName: 'bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300',
-            cardClassName: 'border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-sky-100/80 hover:border-sky-300/90 hover:from-sky-100 hover:to-sky-200/80 dark:border-sky-500/20 dark:from-sky-500/10 dark:via-background dark:to-sky-500/5',
-            glowClassName: 'from-sky-400/30 via-sky-300/10 to-transparent',
-        },
-        {
-            label: 'Pembayaran',
-            href: '/pembayaran',
-            icon: CreditCard,
-            iconClassName: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300',
-            cardClassName: 'border-emerald-200/80 bg-gradient-to-br from-emerald-50 via-white to-emerald-100/80 hover:border-emerald-300/90 hover:from-emerald-100 hover:to-emerald-200/80 dark:border-emerald-500/20 dark:from-emerald-500/10 dark:via-background dark:to-emerald-500/5',
-            glowClassName: 'from-emerald-400/30 via-emerald-300/10 to-transparent',
-        },
-        {
-            label: 'KBM',
-            href: '/jadwal',
-            icon: BookOpen,
-            iconClassName: 'bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300',
-            cardClassName: 'border-violet-200/80 bg-gradient-to-br from-violet-50 via-white to-violet-100/80 hover:border-violet-300/90 hover:from-violet-100 hover:to-violet-200/80 dark:border-violet-500/20 dark:from-violet-500/10 dark:via-background dark:to-violet-500/5',
-            glowClassName: 'from-violet-400/30 via-violet-300/10 to-transparent',
-        },
-        {
-            label: 'Rapor',
-            href: '/rapor',
-            icon: FileBadge2,
-            iconClassName: 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300',
-            cardClassName: 'border-amber-200/80 bg-gradient-to-br from-amber-50 via-white to-amber-100/80 hover:border-amber-300/90 hover:from-amber-100 hover:to-amber-200/80 dark:border-amber-500/20 dark:from-amber-500/10 dark:via-background dark:to-amber-500/5',
-            glowClassName: 'from-amber-400/30 via-amber-300/10 to-transparent',
-        },
-    ]
-
-    const schoolAlert = dummySchoolAlert
-    const agendas = dummyAgendas
-    const news = dummyNews
+    const newGradeCount = dummyGradeEntries.filter((entry) => isNewGrade(entry)).length
+    const nearestBill = dummyBills[0]
 
     return (
-        <div className="space-y-6">
-            <PageHeader>
-                <PageHeaderHeading>Beranda</PageHeaderHeading>
-            </PageHeader>
+        <>
+            <header className="flex items-center gap-3">
+                <div aria-hidden="true" className={cn('flex size-[52px] shrink-0 items-center justify-center rounded-full border-[3px] border-white font-display text-[19px] font-bold shadow-[0_4px_12px_rgba(0,0,0,0.10)]', child.avatarClassName)}>
+                    {child.initials}
+                </div>
+                <div className="min-w-0 flex-grow">
+                    <h1 className="truncate font-display text-[23px] font-bold">Halo, {child.nickname}!</h1>
+                    <p className="mt-0.5 truncate text-sm text-subtle">Kelas {child.className} · Semester {child.semester}</p>
+                </div>
+                {hasManyChildren
+                    ? <ChildSwitcher items={dummyChildren} activeId={child.id} onSelect={selectChild} />
+                    : <NotificationButton unread={3} />}
+            </header>
+            <CompactTopBar
+                title={`Halo, ${child.nickname}!`}
+                leading={<span aria-hidden="true" className={cn('flex size-9 shrink-0 items-center justify-center rounded-full border-2 border-white font-display text-sm font-bold', child.avatarClassName)}>{child.initials}</span>}
+                action={hasManyChildren
+                    ? <ChildSwitcher items={dummyChildren} activeId={child.id} onSelect={selectChild} variant="compact" />
+                    : <CompactNotificationLink unread={3} />}
+            />
 
-            <Card className="overflow-hidden border-none bg-gradient-to-br from-sky-600 via-sky-500 to-cyan-400 text-white shadow-lg">
-                <CardContent className="grid gap-4 p-4 sm:p-5 lg:grid-cols-[1.15fr_0.85fr] lg:gap-6 lg:p-8">
-                    <div className="space-y-3 sm:space-y-4">
-                        <p className="text-xs font-medium text-sky-50/90 sm:text-sm">Assalamu'alaikum</p>
-                        <div>
-                            <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl lg:text-4xl">{data.student.name}</h2>
-                            <p className="mt-2 text-sm leading-6 text-sky-50/90 lg:text-base">{data.student.unit} · Kelas {data.student.className} · Semester {data.student.semesterLabel}</p>
+            <section aria-label="Menu utama" className="grid grid-cols-2 gap-3.5">
+                <ModuleCard to="/akademik" label="Nilai" meta={newGradeCount > 0 ? `${newGradeCount} nilai baru` : 'Lihat nilai'} icon={<BookOpen className="size-6" />} className="bg-pastel-violet" iconClassName="text-pastel-violet-fg" metaClassName="text-[#44544A]" />
+                <ModuleCard to="/absensi" label="Absensi" meta={`Kehadiran ${dummyStudent.attendanceRate}%`} icon={<CalendarCheck className="size-6" />} className="bg-pastel-sky" iconClassName="text-pastel-sky-fg" metaClassName="text-[#1F4A8A]" />
+                {features.payments ? <ModuleCard to="/pembayaran" label="Pembayaran" meta={`${dummyBills.length} tagihan`} icon={<Wallet className="size-6" />} className="bg-pastel-coral" iconClassName="text-[#C2413A]" metaClassName="text-[#7A2E29]" /> : null}
+                <ModuleCard to="/akademik?tab=kelas" label="Jadwal" meta={`${dummyTodayLessonCount} mapel hari ini`} icon={<Clock3 className="size-6" />} className={cn('bg-pastel-sun', !features.payments && 'col-span-2 min-h-[120px]')} iconClassName="text-[#9A6400]" metaClassName="text-[#6B4A00]" />
+            </section>
+
+            <section aria-labelledby="jadwal-h" className="flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                    <h2 id="jadwal-h" className="font-display text-xl font-semibold">Jadwal Hari Ini</h2>
+                    <Link to="/akademik?tab=kelas" className="flex min-h-11 items-center text-sm font-bold text-subtle">Lihat semua</Link>
+                </div>
+                <Link to="/akademik?tab=kelas" className="flex items-center gap-3.5 rounded-3xl bg-card p-3.5 shadow-soft">
+                    <span aria-hidden="true" className="flex size-[72px] shrink-0 items-center justify-center rounded-[18px] bg-pastel-violet font-display text-2xl font-bold text-pastel-violet-fg">
+                        {dummyCurrentLesson.symbol}
+                    </span>
+                    <span className="flex min-w-0 flex-grow flex-col gap-1">
+                        <span className="flex items-center gap-1.5 text-xs font-extrabold text-[#0F7A73]">
+                            <span aria-hidden="true" className="size-2 rounded-full bg-[#0F7A73]" />
+                            Sedang berlangsung
+                        </span>
+                        <span className="text-base font-extrabold">{dummyCurrentLesson.subject}</span>
+                        <span className="text-[13px] text-subtle">{dummyCurrentLesson.time} · {dummyCurrentLesson.room}</span>
+                        <span aria-hidden="true" className="mt-1 h-2 overflow-hidden rounded-full bg-muted">
+                            <span className="block h-full rounded-full bg-[#45BFB4]" style={{ width: `${dummyCurrentLesson.progress}%` }} />
+                        </span>
+                    </span>
+                </Link>
+                <div className="rounded-3xl bg-card px-3.5 py-1.5 shadow-soft">
+                    {dummyNextLessons.map((lesson) => (
+                        <div key={lesson.time} className="flex items-center gap-3 py-2.5">
+                            <span className="w-16 text-[13px] font-extrabold text-subtle">{lesson.time}</span>
+                            <span className="flex-grow text-[15px] font-bold">{lesson.subject}</span>
+                            <span className="text-[13px] text-subtle">{lesson.room}</span>
                         </div>
-                        <div className="grid gap-3 sm:grid-cols-2 xl:max-w-xl">
-                            <div className="rounded-2xl bg-white/15 p-3.5 backdrop-blur-sm sm:p-4">
-                                <p className="text-xs uppercase tracking-wide text-sky-50/80">Wali Kelas</p>
-                                <p className="mt-2 text-base font-semibold">{data.student.homeroomTeacher}</p>
-                            </div>
-                            <div className="rounded-2xl bg-white/15 p-3.5 backdrop-blur-sm sm:p-4">
-                                <p className="text-xs uppercase tracking-wide text-sky-50/80">Rapor Terakhir</p>
-                                <div className="mt-2 flex items-center gap-2">
-                                    <p className="text-base font-semibold">{data.latestReport.average}</p>
-                                    <StatusBadge label={data.latestReport.status} tone={data.latestReport.status === 'Final' ? 'success' : 'warning'} />
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
-
-            <section className="space-y-4">
-                <SectionHeading title="Menu Utama" />
-                <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
-                    {shortcuts.map((item) => (
-                        <Link
-                            key={item.href}
-                            to={item.href}
-                            className={`group relative overflow-hidden rounded-[1.5rem] border p-3.5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md md:rounded-[1.75rem] md:p-4.5 ${item.cardClassName}`}>
-                            <div className={`pointer-events-none absolute -right-6 -top-6 size-24 rounded-full bg-gradient-to-br blur-2xl transition-opacity group-hover:opacity-100 ${item.glowClassName}`} />
-                            <div className="pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-white/40 to-transparent opacity-80 transition-opacity dark:from-white/5" />
-                            <div className="relative flex min-h-22 flex-col justify-between gap-3 md:min-h-28 md:gap-4">
-                                <div className="flex items-start justify-between gap-3">
-                                    <div className={`rounded-[1.1rem] p-2.5 shadow-sm transition-transform duration-200 group-hover:scale-105 md:rounded-[1.25rem] md:p-3 ${item.iconClassName}`}>
-                                        <item.icon className="size-4.5 md:size-6" />
-                                    </div>
-                                    <div className="rounded-full border border-black/5 bg-white/80 p-2 text-muted-foreground opacity-70 transition-all duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:opacity-100 dark:border-white/10 dark:bg-background/70">
-                                        <ArrowUpRight className="size-4" />
-                                    </div>
-                                </div>
-
-                                <div className="space-y-1">
-                                    <span className="block text-[15px] font-semibold tracking-tight md:text-base">{item.label}</span>
-                                </div>
-                            </div>
-                        </Link>
                     ))}
                 </div>
             </section>
 
-            {schoolAlert ? (
-                <section className="space-y-4">
-                    <SectionHeading title="Notifikasi Sekolah" />
-                    <Alert className={`overflow-hidden shadow-sm bg-emerald-600 text-white`}>
-                        <div className="flex flex-col gap-2 pr-0 md:pr-40">
-                            <AlertTitle>{schoolAlert.title}</AlertTitle>
-                            <AlertDescription className='text-white'>{schoolAlert.message}</AlertDescription>
-                        </div>
-                        {schoolAlert.actionHref && schoolAlert.actionLabel ? (
-                            <AlertAction>
-                                <Button variant={'ghost'} asChild className="w-full sm:w-auto">
-                                    <Link to={schoolAlert.actionHref}>
-                                        <label >Buka</label>
-                                        <ArrowRight className="size-5" />
-                                    </Link>
-                                </Button>
-                            </AlertAction>
-                        ) : null}
-                    </Alert>
-                </section>
+            {features.payments ? (
+                <Link to="/pembayaran" className="flex items-center gap-3.5 rounded-3xl bg-ink p-4 text-white">
+                    <span aria-hidden="true" className="flex size-[46px] shrink-0 items-center justify-center rounded-[14px] bg-pastel-sun text-[#9A6400]">
+                        <AlertTriangle className="size-[22px]" />
+                    </span>
+                    <span className="flex flex-grow flex-col gap-0.5">
+                        <span className="text-[15px] font-extrabold">SPP November jatuh tempo</span>
+                        <span className="text-[13px] text-[#C8D8CD]">{nearestBill.due} · {formatCurrency(nearestBill.amount)}</span>
+                    </span>
+                    <span className="text-sm font-extrabold text-pastel-sun">Bayar</span>
+                </Link>
             ) : null}
 
-            <div className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
-                <section className="space-y-4">
-                    <SectionHeading title="Agenda Sekolah / Yayasan" />
-                    <div className="space-y-3">
-                        {agendas.map((item) => (
-                            <Card key={item.id}>
-                                <CardContent className="flex items-start justify-between gap-4 py-0">
-                                    <div className="flex items-start gap-4">
-                                        <div>
-                                            <h3 className="font-semibold">{item.title}</h3>
-                                            <p className="mt-1 text-sm text-muted-foreground">{item.date} - {item.scope}</p>
-                                        </div>
-                                    </div>
-                                    <ArrowRight className="mt-1 size-4 text-muted-foreground" />
-                                </CardContent>
-                            </Card>
-                        ))}
-                    </div>
-                </section>
-
-                <section className="space-y-4">
-                    <SectionHeading
-                        title="Berita Terbaru"
-                        action={<Button variant="ghost" asChild><Link to="/notifikasi">Lihat Semua</Link></Button>}
-                    />
-                    <div className="space-y-3">
-                        {news.map((item) => (
-                            <Card key={item.id}>
-                                <CardContent className="flex items-start gap-4 py-5">
-                                    <div className="rounded-2xl bg-muted p-3 text-muted-foreground">
-                                        <Newspaper className="size-5" />
-                                    </div>
-                                    <div className="min-w-0 flex-1">
-                                        <div className="flex flex-wrap items-center gap-2">
-                                            <StatusBadge label={item.category} tone="info" />
-                                            <span className="text-xs text-muted-foreground">{item.date}</span>
-                                        </div>
-                                        <h3 className="mt-3 text-base font-semibold leading-snug">{item.title}</h3>
-                                        <p className="mt-2 text-sm leading-6 text-muted-foreground">{item.summary}</p>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        ))}
-                    </div>
-                </section>
-            </div>
-        </div>
+            <SchoolNews />
+        </>
     )
+}
+
+function EmptyDashboard() {
+    const { user } = useAuth()
+
+    return (
+        <>
+            <header className="flex items-center gap-3">
+                <BisLogo className="h-12" />
+                <div className="min-w-0 flex-grow">
+                    <h1 className="font-display text-[22px] font-bold">Assalamu’alaikum!</h1>
+                    <p className="mt-0.5 truncate text-sm text-subtle">{user?.email ?? 'akun@gmail.com'}</p>
+                </div>
+                <NotificationButton unread={0} />
+            </header>
+            <CompactTopBar title="Assalamu’alaikum!" action={<CompactNotificationLink unread={0} />} />
+
+            <button type="button" aria-labelledby="spmb-h" className="relative flex w-full items-center gap-3 overflow-hidden rounded-3xl bg-primary p-4 text-left text-white">
+                <div aria-hidden="true" className="absolute -bottom-12 -left-8 size-[110px] rounded-full bg-brand-mid" />
+                <span id="spmb-h" className="relative min-w-0 flex-grow font-display text-lg font-bold leading-tight">SPMB {dummySpmb.schoolYear}</span>
+                <span className="relative flex h-10 shrink-0 items-center gap-1 rounded-full bg-white px-3.5 text-sm font-extrabold text-brand-dark">
+                    Daftar
+                    <ArrowRight className="size-4" strokeWidth={2.4} />
+                </span>
+            </button>
+
+            <section aria-labelledby="link-h" className="rounded-3xl bg-card p-[18px] shadow-soft">
+                <div className="flex items-center gap-3.5">
+                    <span aria-hidden="true" className="flex size-[52px] shrink-0 items-center justify-center rounded-2xl bg-pastel-sky text-pastel-sky-fg">
+                        <Link2 className="size-6" />
+                    </span>
+                    <div className="min-w-0 flex-grow">
+                        <h2 id="link-h" className="font-display text-lg font-semibold">Hubungkan Data Peserta Didik</h2>
+                        <p className="mt-0.5 text-[13px] leading-[1.45] text-subtle">Anak sudah bersekolah di BIS? Lihat nilai, absensi &amp; {features.payments ? 'tagihannya' : 'jadwalnya'}.</p>
+                    </div>
+                </div>
+                <Link to="/hubungkan-anak" className="mt-3.5 flex h-[50px] w-full items-center justify-center gap-2 rounded-full bg-primary text-[15px] font-extrabold text-white">
+                    Hubungkan Sekarang
+                    <ArrowRight className="size-[18px]" strokeWidth={2.4} />
+                </Link>
+            </section>
+
+            <SchoolNews />
+        </>
+    )
+}
+
+export default function Dashboard() {
+    const [searchParams] = useSearchParams()
+
+    // Pratinjau tampilan akun tanpa peserta didik: buka "/?state=kosong".
+    return searchParams.get('state') === 'kosong' ? <EmptyDashboard /> : <StudentDashboard />
 }

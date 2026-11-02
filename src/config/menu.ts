@@ -1,17 +1,19 @@
 import {
-    Bell,
     BookOpen,
-    ClipboardCheck,
-    Gauge,
+    CalendarCheck,
+    House,
     LucideIcon,
-    NotebookText,
     UserRound,
+    Wallet,
 } from 'lucide-react'
+import { features } from '@/config/app'
 
 type MenuItemType = {
     title: string
     url: string
     icon?: LucideIcon
+    // Menu yang butuh data peserta didik dinonaktifkan saat belum ada yang terhubung.
+    requiresStudent?: boolean
     items?: MenuItemType[]
 }
 type MenuType = MenuItemType[]
@@ -20,36 +22,26 @@ export const mainMenu: MenuType = [
     {
         title: 'Beranda',
         url: '/',
-        icon: Gauge
+        icon: House,
     },
     {
-        title: 'Jadwal',
-        url: '/jadwal',
+        title: 'Akademik',
+        url: '/akademik',
         icon: BookOpen,
+        requiresStudent: true,
     },
     {
         title: 'Absensi',
         url: '/absensi',
-        icon: ClipboardCheck,
+        icon: CalendarCheck,
+        requiresStudent: true,
     },
-    {
-        title: 'Nilai',
-        url: '/nilai',
-        icon: NotebookText,
-    },
-    {
-        title: 'Rapor',
-        url: '/rapor',
-        icon: Bell,
-    },
-]
-
-export const secondaryMenu: MenuType = [
-    {
-        title: 'Notifikasi',
-        url: '/notifikasi',
-        icon: Bell,
-    },
+    ...(features.payments ? [{
+        title: 'Bayar',
+        url: '/pembayaran',
+        icon: Wallet,
+        requiresStudent: true,
+    }] : []),
     {
         title: 'Profil',
         url: '/profil',

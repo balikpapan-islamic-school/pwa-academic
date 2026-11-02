@@ -22,4 +22,9 @@ export const appConfig: AppConfigType = {
     }
 }
 
+// Fitur yang sementara disembunyikan dari UI; ubah ke true untuk menampilkan kembali.
+export const features = {
+    payments: false,
+}
+
 export const baseUrl = import.meta.env.VITE_BASE_URL ?? ""
