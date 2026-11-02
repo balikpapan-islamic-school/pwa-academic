@@ -1,47 +1,44 @@
 import { FormEvent, useState } from 'react'
-import { ArrowRight, CalendarDays, Check, IdCard, Phone, SearchX, ShieldCheck } from 'lucide-react'
+import { ArrowRight, CalendarDays, Clock3, Fingerprint, IdCard, Phone, Send, ShieldCheck } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { ChildRequestCard } from '@/components/hubungkan/child-request-card'
 import { FieldShell } from '@/components/kit/field-shell'
-import { FocusPage, focusCardClassName, SubmitButton, SuccessCard } from '@/components/kit/focus-page'
+import { FocusPage, focusCardClassName, FormField, SubmitButton, SuccessCard } from '@/components/kit/focus-page'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { useGoBack } from '@/hooks/use-go-back'
-import { dummyStudent } from '@/lib/dummy-ui'
-import { formatDate, parseIsoDate } from '@/lib/format'
+import { ChildLinkRequest, ChildRelationship, childRelationshipLabels, childRequestStatusLabels, dummyChildRequests, dummyStudent, fakeRequest } from '@/lib/dummy-ui'
+import { formatDate, parseIsoDate, toIsoDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
-type Step = 'form' | 'confirm' | 'success'
-type Relation = 'Ayah' | 'Ibu' | 'Wali'
+type Step = 'form' | 'sent'
 
-const steps: Array<{ key: Step, label: string }> = [
-    { key: 'form', label: 'Isi Data' },
-    { key: 'confirm', label: 'Konfirmasi' },
-    { key: 'success', label: 'Selesai' },
-]
+const steps = ['Isi Data', 'Verifikasi Admin', 'Terhubung']
+const relationships: ChildRelationship[] = ['AYAH', 'IBU', 'WALI']
 
-const relations: Relation[] = ['Ayah', 'Ibu', 'Wali']
+type Errors = { nik?: string, birthDate?: string, nisn?: string, relationship?: string }
 
-// Simulasi pencarian: hanya data dummy (NIS/NISN + tanggal lahir Naura) yang ditemukan.
-function findDummyStudent(identity: string, birthDate: string) {
-    return new Promise<boolean>((resolve) => {
-        window.setTimeout(() => {
-            resolve((identity === dummyStudent.nis || identity === dummyStudent.nisn) && birthDate === dummyStudent.birthDate)
-        }, 800)
-    })
+// Simulasi aturan backend POST /children/requests (error 422 di errors.nik).
+function validateAgainstDummy(nik: string, requests: ChildLinkRequest[]) {
+    if (nik === dummyStudent.nik) {
+        return 'Anak ini sudah terhubung dengan akun Anda.'
+    }
+    if (requests.some((request) => request.nik === nik && request.status === 'PENDING')) {
+        return 'Pengajuan untuk anak ini masih menunggu verifikasi.'
+    }
+    return null
 }
 
-function StepIndicator({ current }: { current: Step }) {
-    const currentIndex = steps.findIndex((step) => step.key === current)
-
+function StepIndicator({ current }: { current: number }) {
     return (
         <ol className="relative mt-5 flex items-center gap-2" aria-label="Langkah">
-            {steps.map((step, index) => {
-                const isDone = index < currentIndex
-                const isActive = index === currentIndex
+            {steps.map((label, index) => {
+                const isReached = index <= current
 
                 return (
-                    <li key={step.key} aria-current={isActive ? 'step' : undefined} className="flex flex-1 flex-col gap-1.5">
-                        <span className={cn('h-1.5 rounded-full transition-colors', isDone || isActive ? 'bg-cta' : 'bg-white/25')} />
-                        <span className={cn('text-xs font-extrabold', isDone || isActive ? 'text-white' : 'text-white/60')}>
-                            {index + 1}. {step.label}
+                    <li key={label} aria-current={index === current ? 'step' : undefined} className="flex flex-1 flex-col gap-1.5">
+                        <span className={cn('h-1.5 rounded-full transition-colors', isReached ? 'bg-cta' : 'bg-white/25')} />
+                        <span className={cn('text-xs font-extrabold', isReached ? 'text-white' : 'text-white/60')}>
+                            {index + 1}. {label}
                         </span>
                     </li>
                 )
@@ -50,211 +47,274 @@ function StepIndicator({ current }: { current: Step }) {
     )
 }
 
-function StudentPreview() {
-    return (
-        <div className="flex items-center gap-3.5 rounded-[20px] bg-[#F1F6F1] p-3.5">
-            <span aria-hidden="true" className="flex size-14 shrink-0 items-center justify-center rounded-full border-[3px] border-white bg-pastel-coral font-display text-xl font-bold text-pastel-coral-fg">
-                {dummyStudent.initials}
-            </span>
-            <span className="flex min-w-0 flex-col gap-0.5">
-                <span className="font-display text-lg font-bold leading-tight">{dummyStudent.name}</span>
-                <span className="text-[13px] text-subtle">NIS {dummyStudent.nis} · Kelas {dummyStudent.className}</span>
-                <span className="text-[13px] text-subtle">{dummyStudent.unit}</span>
-            </span>
-        </div>
-    )
-}
-
 export default function HubungkanAnak() {
-    const leavePage = useGoBack('/?state=kosong')
+    const goBack = useGoBack('/?state=kosong')
+    const today = toIsoDate(new Date())
     const [step, setStep] = useState<Step>('form')
-    const [identity, setIdentity] = useState('')
+    const [requests, setRequests] = useState(dummyChildRequests)
+    const [nik, setNik] = useState('')
     const [birthDate, setBirthDate] = useState('')
-    const [relation, setRelation] = useState<Relation | null>(null)
-    const [errors, setErrors] = useState<{ identity?: string, birthDate?: string, relation?: string }>({})
-    const [notFound, setNotFound] = useState(false)
-    const [isSearching, setIsSearching] = useState(false)
+    const [nisn, setNisn] = useState('')
+    const [relationship, setRelationship] = useState<ChildRelationship | null>(null)
+    const [errors, setErrors] = useState<Errors>({})
+    const [isConfirmOpen, setIsConfirmOpen] = useState(false)
+    const [isSending, setIsSending] = useState(false)
 
-    function goBack() {
-        if (step === 'confirm') {
-            setStep('form')
-            return
-        }
-
-        leavePage()
+    function clearError(key: keyof Errors) {
+        setErrors((current) => ({ ...current, [key]: undefined }))
     }
 
-    async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    function handleSubmit(event: FormEvent<HTMLFormElement>) {
         event.preventDefault()
-        const nextErrors: typeof errors = {}
+        const nextErrors: Errors = {}
 
-        if (!/^\d{5,10}$/.test(identity)) {
-            nextErrors.identity = 'Masukkan NIS (5–10 digit) atau NISN (10 digit).'
+        if (!/^\d{16}$/.test(nik)) {
+            nextErrors.nik = 'NIK harus 16 digit.'
         }
         if (!birthDate) {
-            nextErrors.birthDate = 'Pilih tanggal lahir peserta didik.'
+            nextErrors.birthDate = 'Pilih tanggal lahir anak.'
+        } else if (birthDate >= today) {
+            nextErrors.birthDate = 'Tanggal lahir harus sebelum hari ini.'
         }
-        if (!relation) {
-            nextErrors.relation = 'Pilih hubungan Anda dengan peserta didik.'
+        if (nisn && !/^\d{10}$/.test(nisn)) {
+            nextErrors.nisn = 'NISN harus 10 digit, atau kosongkan.'
+        }
+        if (!relationship) {
+            nextErrors.relationship = 'Pilih hubungan Anda dengan anak.'
         }
 
         setErrors(nextErrors)
-        setNotFound(false)
-        if (Object.keys(nextErrors).length > 0) {
+        if (Object.keys(nextErrors).length === 0) {
+            setIsConfirmOpen(true)
+        }
+    }
+
+    async function send() {
+        if (!relationship) {
             return
         }
 
-        setIsSearching(true)
-        const found = await findDummyStudent(identity, birthDate)
-        setIsSearching(false)
+        setIsSending(true)
+        await fakeRequest()
+        setIsSending(false)
 
-        if (found) {
-            setStep('confirm')
-        } else {
-            setNotFound(true)
+        const nikError = validateAgainstDummy(nik, requests)
+        if (nikError) {
+            setErrors({ nik: nikError })
+            return
         }
+
+        const request: ChildLinkRequest = {
+            id: `req-${Date.now()}`,
+            nik,
+            birthDate,
+            nisn: nisn || null,
+            relationship: childRelationshipLabels[relationship],
+            status: 'PENDING',
+            statusLabel: childRequestStatusLabels.PENDING,
+            note: null,
+            submittedAt: new Date().toISOString(),
+            processedAt: null,
+            student: null,
+        }
+        setRequests((current) => [request, ...current])
+        setStep('sent')
+        window.scrollTo({ top: 0 })
+    }
+
+    // Isi ulang form dari pengajuan yang ditolak agar wali cukup memperbaiki bagian yang salah.
+    function resubmit(request: ChildLinkRequest) {
+        setNik(request.nik)
+        setBirthDate(request.birthDate)
+        setNisn(request.nisn ?? '')
+        const relationshipKey = relationships.find((item) => childRelationshipLabels[item] === request.relationship)
+        setRelationship(relationshipKey ?? null)
+        setErrors({})
+        setStep('form')
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+
+    function startNew() {
+        setNik('')
+        setBirthDate('')
+        setNisn('')
+        setRelationship(null)
+        setErrors({})
+        setStep('form')
+    }
+
+    const requestHistory = requests.length > 0 ? (
+        <section aria-labelledby="req-h" className="mx-5 mt-[22px] flex flex-col gap-2.5">
+            <h2 id="req-h" className="ml-1 font-display text-[19px] font-semibold">Status Pengajuan</h2>
+            {requests.map((request) => (
+                <ChildRequestCard key={request.id} request={request} onResubmit={resubmit} />
+            ))}
+        </section>
+    ) : null
+
+    if (step === 'sent') {
+        return (
+            <FocusPage
+                title={<>Hubungkan<br />Peserta Didik</>}
+                subtitle="Data anak diverifikasi oleh admin sekolah."
+                onBack={goBack}
+                headerExtra={<StepIndicator current={1} />}>
+                <SuccessCard
+                    icon={Clock3}
+                    title="Menunggu verifikasi admin"
+                    description="Admin sekolah akan mencocokkan data dengan data peserta didik. Setelah disetujui, data anak langsung tampil di Beranda.">
+                    <Link to="/?state=kosong" className="flex h-14 w-full items-center justify-center gap-2.5 rounded-full bg-primary text-[17px] font-extrabold text-white shadow-[0_10px_22px_rgba(0,130,54,0.28)]">
+                        Kembali ke Beranda
+                        <ArrowRight className="size-5" strokeWidth={2.4} />
+                    </Link>
+                    <button type="button" onClick={startNew} className="text-sm font-extrabold text-primary">
+                        Ajukan anak lain
+                    </button>
+                </SuccessCard>
+                {requestHistory}
+            </FocusPage>
+        )
     }
 
     return (
         <FocusPage
             title={<>Hubungkan<br />Peserta Didik</>}
             subtitle="Lihat nilai, absensi, dan jadwal anak Anda di aplikasi."
-            onBack={step !== 'success' ? goBack : undefined}
-            headerExtra={<StepIndicator current={step} />}>
-            {step === 'form' ? (
-                <>
-                    <form onSubmit={handleSubmit} noValidate className={focusCardClassName}>
-                        {notFound ? (
-                            <div role="alert" className="flex gap-3 rounded-2xl bg-pastel-coral p-3.5 text-pastel-coral-fg">
-                                <SearchX className="mt-0.5 size-5 shrink-0" />
-                                <p className="text-sm font-bold leading-snug">Data tidak ditemukan. Pastikan NIS/NISN dan tanggal lahir sesuai data di sekolah.</p>
-                            </div>
-                        ) : null}
+            onBack={goBack}
+            isDirty={Boolean(nik || birthDate || nisn || relationship)}
+            headerExtra={<StepIndicator current={0} />}>
+            <form onSubmit={handleSubmit} noValidate className={focusCardClassName}>
+                <FormField id="nik-anak" label="NIK Anak" error={errors.nik} hint="16 digit, tertera di Kartu Keluarga.">
+                    <FieldShell invalid={Boolean(errors.nik)}>
+                        <Fingerprint className="size-5 shrink-0" />
+                        <input
+                            id="nik-anak"
+                            inputMode="numeric"
+                            autoComplete="off"
+                            placeholder="Contoh: 6471000000000001"
+                            value={nik}
+                            onChange={(event) => {
+                                clearError('nik')
+                                setNik(event.target.value.replace(/\D/g, '').slice(0, 16))
+                            }}
+                            aria-invalid={Boolean(errors.nik)}
+                            aria-describedby="nik-anak-desc"
+                            className="min-w-0 flex-grow bg-transparent text-base text-ink outline-none"
+                        />
+                        <span aria-hidden="true" className="shrink-0 pr-2 text-xs font-bold text-subtle">{nik.length}/16</span>
+                    </FieldShell>
+                </FormField>
 
-                        <div className="flex flex-col gap-1.5">
-                            <label htmlFor="nis-anak" className="text-sm font-extrabold">NIS / NISN Peserta Didik</label>
-                            <FieldShell invalid={Boolean(errors.identity)}>
-                                <IdCard className="size-5 shrink-0" />
-                                <input
-                                    id="nis-anak"
-                                    inputMode="numeric"
-                                    autoComplete="off"
-                                    placeholder="Contoh: 2024017"
-                                    value={identity}
-                                    onChange={(event) => setIdentity(event.target.value.replace(/\D/g, '').slice(0, 10))}
-                                    aria-invalid={Boolean(errors.identity)}
-                                    aria-describedby={errors.identity ? 'nis-error' : 'nis-hint'}
-                                    className="min-w-0 flex-grow bg-transparent text-base text-ink outline-none"
-                                />
-                            </FieldShell>
-                            {errors.identity
-                                ? <p id="nis-error" className="text-sm font-semibold text-destructive">{errors.identity}</p>
-                                : <p id="nis-hint" className="text-xs text-subtle">Tertera di kartu pelajar atau rapor.</p>}
-                        </div>
+                <FormField id="tgl-anak" label="Tanggal Lahir Anak" error={errors.birthDate}>
+                    <FieldShell invalid={Boolean(errors.birthDate)}>
+                        <CalendarDays className="size-5 shrink-0" />
+                        <input
+                            id="tgl-anak"
+                            type="date"
+                            value={birthDate}
+                            max={today}
+                            onChange={(event) => {
+                                clearError('birthDate')
+                                setBirthDate(event.target.value)
+                            }}
+                            aria-invalid={Boolean(errors.birthDate)}
+                            aria-describedby="tgl-anak-desc"
+                            className="min-w-0 flex-grow bg-transparent text-base text-ink outline-none"
+                        />
+                    </FieldShell>
+                </FormField>
 
-                        <div className="flex flex-col gap-1.5">
-                            <label htmlFor="tgl-anak" className="text-sm font-extrabold">Tanggal Lahir</label>
-                            <FieldShell invalid={Boolean(errors.birthDate)}>
-                                <CalendarDays className="size-5 shrink-0" />
-                                <input
-                                    id="tgl-anak"
-                                    type="date"
-                                    value={birthDate}
-                                    max={new Date().toISOString().slice(0, 10)}
-                                    onChange={(event) => setBirthDate(event.target.value)}
-                                    aria-invalid={Boolean(errors.birthDate)}
-                                    className="min-w-0 flex-grow bg-transparent text-base text-ink outline-none"
-                                />
-                            </FieldShell>
-                            {errors.birthDate ? <p className="text-sm font-semibold text-destructive">{errors.birthDate}</p> : null}
-                        </div>
+                <FormField id="nisn-anak" label="NISN (opsional)" error={errors.nisn} hint="10 digit. Membantu admin mencocokkan data lebih cepat.">
+                    <FieldShell invalid={Boolean(errors.nisn)}>
+                        <IdCard className="size-5 shrink-0" />
+                        <input
+                            id="nisn-anak"
+                            inputMode="numeric"
+                            autoComplete="off"
+                            placeholder="Contoh: 0011223344"
+                            value={nisn}
+                            onChange={(event) => {
+                                clearError('nisn')
+                                setNisn(event.target.value.replace(/\D/g, '').slice(0, 10))
+                            }}
+                            aria-invalid={Boolean(errors.nisn)}
+                            aria-describedby="nisn-anak-desc"
+                            className="min-w-0 flex-grow bg-transparent text-base text-ink outline-none"
+                        />
+                    </FieldShell>
+                </FormField>
 
-                        <fieldset className="flex flex-col gap-1.5">
-                            <legend className="mb-1.5 text-sm font-extrabold">Hubungan dengan Peserta Didik</legend>
-                            <div className="grid grid-cols-3 gap-2">
-                                {relations.map((item) => (
-                                    <button
-                                        key={item}
-                                        type="button"
-                                        aria-pressed={relation === item}
-                                        onClick={() => setRelation(item)}
-                                        className={cn('h-12 rounded-full text-[15px] font-extrabold transition-colors', relation === item ? 'bg-ink text-white' : 'border-2 border-border bg-card text-[#44544A]')}>
-                                        {item}
-                                    </button>
-                                ))}
-                            </div>
-                            {errors.relation ? <p className="text-sm font-semibold text-destructive">{errors.relation}</p> : null}
-                        </fieldset>
-
-                        <SubmitButton isLoading={isSearching} loadingLabel="Mencari data…">
-                            Cari Peserta Didik
-                            <ArrowRight className="size-5" strokeWidth={2.4} />
-                        </SubmitButton>
-                    </form>
-
-                    <div className="mx-5 mt-5 flex flex-col gap-2.5">
-                        <div className="flex gap-3 rounded-[20px] bg-card p-3.5">
-                            <span aria-hidden="true" className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-pastel-mint text-pastel-mint-fg">
-                                <ShieldCheck className="size-5" />
-                            </span>
-                            <p className="text-[13px] leading-normal text-subtle">
-                                <span className="font-extrabold text-ink">Data Anda aman.</span> Tanggal lahir dipakai untuk memastikan hanya orang tua/wali yang bisa menghubungkan data anak.
-                            </p>
-                        </div>
-                        <a href="tel:+62542000000" className="flex items-center gap-3 rounded-[20px] bg-card p-3.5">
-                            <span aria-hidden="true" className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-pastel-sky text-pastel-sky-fg">
-                                <Phone className="size-5" />
-                            </span>
-                            <span className="flex-grow text-[13px] leading-normal text-subtle">
-                                <span className="block font-extrabold text-ink">Tidak tahu NIS?</span>
-                                Hubungi Tata Usaha sekolah
-                            </span>
-                            <ArrowRight className="size-[18px] text-subtle" />
-                        </a>
-                    </div>
-                </>
-            ) : null}
-
-            {step === 'confirm' ? (
-                <section aria-labelledby="confirm-h" className={focusCardClassName}>
-                    <div>
-                        <h2 id="confirm-h" className="font-display text-xl font-bold">Apakah ini anak Anda?</h2>
-                        <p className="mt-1 text-sm text-subtle">Periksa kembali sebelum menghubungkan.</p>
-                    </div>
-                    <StudentPreview />
-                    <dl className="flex flex-col rounded-2xl border-2 border-border px-4 py-1">
-                        {[
-                            ['Tanggal lahir', formatDate(parseIsoDate(dummyStudent.birthDate))],
-                            ['Wali kelas', dummyStudent.homeroomTeacher],
-                            ['Hubungan', relation ?? '-'],
-                        ].map(([label, value]) => (
-                            <div key={label} className="flex justify-between gap-3 border-b border-muted py-2.5 last:border-b-0">
-                                <dt className="text-[13px] font-bold text-subtle">{label}</dt>
-                                <dd className="text-sm font-bold">{value}</dd>
-                            </div>
+                <fieldset className="flex flex-col gap-1.5">
+                    <legend className="mb-1.5 text-sm font-extrabold">Hubungan dengan Anak</legend>
+                    <div className="grid grid-cols-3 gap-2">
+                        {relationships.map((item) => (
+                            <button
+                                key={item}
+                                type="button"
+                                aria-pressed={relationship === item}
+                                onClick={() => {
+                                    clearError('relationship')
+                                    setRelationship(item)
+                                }}
+                                className={cn('h-12 rounded-full text-[15px] font-extrabold transition-colors', relationship === item ? 'bg-ink text-white' : 'border-2 border-border bg-card text-[#44544A]')}>
+                                {childRelationshipLabels[item]}
+                            </button>
                         ))}
-                    </dl>
-                    <div className="grid grid-cols-[1fr_1.4fr] gap-2.5">
-                        <button type="button" onClick={() => setStep('form')} className="h-[52px] rounded-full border-2 border-border bg-card text-[15px] font-extrabold">Bukan</button>
-                        <button type="button" onClick={() => setStep('success')} className="flex h-[52px] items-center justify-center gap-2 rounded-full bg-primary text-[15px] font-extrabold text-white">
-                            <Check className="size-5" strokeWidth={2.6} />
-                            Ya, Hubungkan
-                        </button>
                     </div>
-                </section>
-            ) : null}
+                    {errors.relationship ? <p className="text-sm font-semibold text-destructive">{errors.relationship}</p> : null}
+                </fieldset>
 
-            {step === 'success' ? (
-                <SuccessCard title="Berhasil terhubung!" description={`Sekarang Anda bisa memantau nilai, absensi, dan jadwal ${dummyStudent.nickname}.`}>
-                    <div className="w-full text-left">
-                        <StudentPreview />
-                    </div>
-                    <Link to="/" className="flex h-14 w-full items-center justify-center gap-2.5 rounded-full bg-primary text-[17px] font-extrabold text-white shadow-[0_10px_22px_rgba(0,130,54,0.28)]">
-                        Lihat Beranda {dummyStudent.nickname}
-                        <ArrowRight className="size-5" strokeWidth={2.4} />
-                    </Link>
-                </SuccessCard>
-            ) : null}
+                <SubmitButton isLoading={isSending} loadingLabel="Mengirim…">
+                    Kirim Pengajuan
+                    <Send className="size-5" strokeWidth={2.4} />
+                </SubmitButton>
+            </form>
+
+            <div className="mx-5 mt-5 flex flex-col gap-2.5">
+                <div className="flex gap-3 rounded-[20px] bg-card p-3.5">
+                    <span aria-hidden="true" className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-pastel-mint text-pastel-mint-fg">
+                        <ShieldCheck className="size-5" />
+                    </span>
+                    <p className="text-[13px] leading-normal text-subtle">
+                        <span className="font-extrabold text-ink">Data Anda aman.</span> NIK dan tanggal lahir hanya dipakai admin sekolah untuk memastikan Anda orang tua/wali anak tersebut.
+                    </p>
+                </div>
+                <a href="tel:+62542000000" className="flex items-center gap-3 rounded-[20px] bg-card p-3.5">
+                    <span aria-hidden="true" className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-pastel-sky text-pastel-sky-fg">
+                        <Phone className="size-5" />
+                    </span>
+                    <span className="flex-grow text-[13px] leading-normal text-subtle">
+                        <span className="block font-extrabold text-ink">Butuh bantuan?</span>
+                        Hubungi Tata Usaha sekolah
+                    </span>
+                    <ArrowRight className="size-[18px] text-subtle" />
+                </a>
+            </div>
+
+            {requestHistory}
+
+            <ConfirmDialog
+                open={isConfirmOpen}
+                onOpenChange={setIsConfirmOpen}
+                icon={Send}
+                title="Kirim pengajuan?"
+                description="Admin sekolah akan memverifikasi data berikut sebelum anak terhubung ke akun Anda."
+                confirmLabel="Kirim"
+                onConfirm={send}>
+                <dl className="mt-4 flex w-full flex-col rounded-2xl border-2 border-border px-4 py-1 text-left">
+                    {[
+                        ['NIK', nik],
+                        ['Tanggal lahir', birthDate ? formatDate(parseIsoDate(birthDate)) : '-'],
+                        ['NISN', nisn || '-'],
+                        ['Hubungan', relationship ? childRelationshipLabels[relationship] : '-'],
+                    ].map(([label, value]) => (
+                        <div key={label} className="flex justify-between gap-3 border-b border-muted py-2.5 last:border-b-0">
+                            <dt className="shrink-0 text-[13px] font-bold text-subtle">{label}</dt>
+                            <dd className="min-w-0 break-all text-right text-sm font-bold">{value}</dd>
+                        </div>
+                    ))}
+                </dl>
+            </ConfirmDialog>
         </FocusPage>
     )
 }

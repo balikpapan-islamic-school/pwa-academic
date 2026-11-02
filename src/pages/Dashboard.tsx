@@ -2,12 +2,13 @@ import { ReactNode, useState } from 'react'
 import { AlertTriangle, ArrowRight, Bell, BookOpen, CalendarCheck, Clock3, Link2, Wallet } from 'lucide-react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { BisLogo } from '@/components/bis-logo'
-import { features } from '@/config/app'
+import { features, spmb } from '@/config/app'
 import { ChildSwitcher } from '@/components/dashboard/child-switcher'
 import { SchoolNews } from '@/components/dashboard/school-news'
+import { ChildRequestCard } from '@/components/hubungkan/child-request-card'
 import { CompactTopBar } from '@/components/kit/compact-top-bar'
 import { useAuth } from '@/contexts/AuthContext'
-import { dummyBills, dummyChildren, dummyCurrentLesson, dummyGradeEntries, dummyNextLessons, dummySpmb, dummyStudent, dummyTodayLessonCount, isNewGrade } from '@/lib/dummy-ui'
+import { dummyBills, dummyChildren, dummyChildRequests, dummyCurrentLesson, dummyGradeEntries, dummyNextLessons, dummyStudent, dummyTodayLessonCount, isNewGrade } from '@/lib/dummy-ui'
 import { formatCurrency } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
@@ -156,6 +157,7 @@ function StudentDashboard() {
 
 function EmptyDashboard() {
     const { user } = useAuth()
+    const openRequests = dummyChildRequests.filter((request) => request.status !== 'APPROVED')
 
     return (
         <>
@@ -169,14 +171,24 @@ function EmptyDashboard() {
             </header>
             <CompactTopBar title="Assalamu’alaikum!" action={<CompactNotificationLink unread={0} />} />
 
-            <button type="button" aria-labelledby="spmb-h" className="relative flex w-full items-center gap-3 overflow-hidden rounded-3xl bg-primary p-4 text-left text-white">
-                <div aria-hidden="true" className="absolute -bottom-12 -left-8 size-[110px] rounded-full bg-brand-mid" />
-                <span id="spmb-h" className="relative min-w-0 flex-grow font-display text-lg font-bold leading-tight">SPMB {dummySpmb.schoolYear}</span>
-                <span className="relative flex h-10 shrink-0 items-center gap-1 rounded-full bg-white px-3.5 text-sm font-extrabold text-brand-dark">
-                    Daftar
-                    <ArrowRight className="size-4" strokeWidth={2.4} />
-                </span>
-            </button>
+            {spmb.registrationUrl ? (
+                <a href={spmb.registrationUrl} target="_blank" rel="noreferrer" aria-labelledby="spmb-h" className="relative flex w-full items-center gap-3 overflow-hidden rounded-3xl bg-primary p-4 text-left text-white">
+                    <div aria-hidden="true" className="absolute -bottom-12 -left-8 size-[110px] rounded-full bg-brand-mid" />
+                    <span id="spmb-h" className="relative min-w-0 flex-grow font-display text-lg font-bold leading-tight">SPMB {spmb.schoolYear}</span>
+                    <span className="relative flex h-10 shrink-0 items-center gap-1 rounded-full bg-white px-3.5 text-sm font-extrabold text-brand-dark">
+                        Daftar
+                        <ArrowRight className="size-4" strokeWidth={2.4} />
+                    </span>
+                </a>
+            ) : null}
+
+            {/* GET /children hanya berisi anak yang disetujui; pengajuan yang belum selesai tampil di sini. */}
+            {openRequests.length > 0 ? (
+                <section aria-labelledby="req-h" className="flex flex-col gap-2.5">
+                    <h2 id="req-h" className="font-display text-[19px] font-semibold">Status Pengajuan</h2>
+                    {openRequests.map((request) => <ChildRequestCard key={request.id} request={request} />)}
+                </section>
+            ) : null}
 
             <section aria-labelledby="link-h" className="rounded-3xl bg-card p-[18px] shadow-soft">
                 <div className="flex items-center gap-3.5">

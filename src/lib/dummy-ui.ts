@@ -5,6 +5,7 @@ export const dummyStudent = {
     name: 'Naura Aulia Putri',
     nickname: 'Naura',
     initials: 'NA',
+    nik: '6471015405100003',
     nis: '2024017',
     nisn: '0101234567',
     birthDate: '2010-05-14',
@@ -34,6 +35,38 @@ export type DummyChild = {
 export const dummyChildren: DummyChild[] = [
     { id: 'naura', name: 'Naura Aulia Putri', nickname: 'Naura', initials: 'NA', className: 'XI IPA 2', semester: 'Ganjil', school: 'SMA Islam Balikpapan', avatarClassName: 'bg-pastel-coral text-pastel-coral-fg' },
     { id: 'fathan', name: 'Muhammad Fathan', nickname: 'Fathan', initials: 'MF', className: '4A', semester: 'Ganjil', school: 'SD Islam Balikpapan', avatarClassName: 'bg-pastel-sky text-pastel-sky-fg' },
+]
+
+export type ChildRelationship = 'AYAH' | 'IBU' | 'WALI'
+export type ChildRequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED'
+
+// Pengajuan hubungkan anak (POST/GET /children/requests). Data siswa baru terlihat setelah disetujui admin.
+export type ChildLinkRequest = {
+    id: string
+    nik: string
+    birthDate: string
+    nisn: string | null
+    relationship: string
+    status: ChildRequestStatus
+    statusLabel: string
+    note: string | null
+    submittedAt: string
+    processedAt: string | null
+    student: { id: string, name: string } | null
+}
+
+export const childRelationshipLabels: Record<ChildRelationship, string> = { AYAH: 'Ayah', IBU: 'Ibu', WALI: 'Wali' }
+
+export const childRequestStatusLabels: Record<ChildRequestStatus, string> = {
+    PENDING: 'Menunggu Verifikasi',
+    APPROVED: 'Disetujui',
+    REJECTED: 'Ditolak',
+}
+
+export const dummyChildRequests: ChildLinkRequest[] = [
+    { id: 'req-3', nik: '6471000000000001', birthDate: '2018-05-10', nisn: '0011223344', relationship: 'Ibu', status: 'PENDING', statusLabel: 'Menunggu Verifikasi', note: null, submittedAt: '2026-11-01T09:12:00+08:00', processedAt: null, student: null },
+    { id: 'req-2', nik: '6471000000000002', birthDate: '2016-08-21', nisn: null, relationship: 'Ibu', status: 'REJECTED', statusLabel: 'Ditolak', note: 'Tanggal lahir tidak sesuai data sekolah. Periksa kembali akta kelahiran.', submittedAt: '2026-10-28T19:40:00+08:00', processedAt: '2026-10-29T10:05:00+08:00', student: null },
+    { id: 'req-1', nik: '6471015405100003', birthDate: '2010-05-14', nisn: '0101234567', relationship: 'Ibu', status: 'APPROVED', statusLabel: 'Disetujui', note: null, submittedAt: '2026-07-14T08:00:00+08:00', processedAt: '2026-07-15T09:30:00+08:00', student: { id: 'naura', name: 'Naura Aulia Putri' } },
 ]
 
 export const dummyPersonalInfo = [
@@ -218,10 +251,6 @@ export const dummyPaymentMethods = [
     { id: 'qris', short: 'QR', name: 'QRIS', description: 'Scan dari aplikasi e-wallet', className: 'bg-pastel-mint text-pastel-mint-fg' },
     { id: 'tunai', short: 'Rp', name: 'Bayar di Sekolah', description: 'Tunai di loket tata usaha', className: 'bg-pastel-sun text-pastel-sun-fg' },
 ]
-
-export const dummySpmb = {
-    schoolYear: '2027/2028',
-}
 
 export type DummyNewsCategory = 'Pengumuman' | 'Kegiatan' | 'Prestasi'
 

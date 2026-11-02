@@ -3,7 +3,8 @@
 Dokumen ini adalah kontrak API antara frontend PWA BIS dan backend. Setiap endpoint diturunkan langsung dari data yang tampil di halaman frontend (desain `.temp/ui.html`).
 
 - **Status:** target yang perlu dibangun backend
-- **Endpoint yang sudah aktif:** tercatat di `API_USAGE.md`; perbedaannya dengan dokumen ini dirangkum di [bagian 11](#11-perubahan-terhadap-endpoint-aktif)
+- **Endpoint yang sudah aktif:** dirangkum di [bagian 11](#11-perubahan-terhadap-endpoint-aktif). Sebagian isi `API_USAGE.md` sudah usang (mis. `/reports` dan `GET /me`); bila berbeda, ikuti dokumen ini
+- **Pengguna PWA:** hanya akun role `wali_siswa` (orang tua/wali). Siswa tidak login ke PWA
 - **Data contoh frontend:** `src/lib/dummy-ui.ts` (bentuk data di sana mengikuti dokumen ini)
 
 ---
@@ -110,8 +111,13 @@ Frontend yang memformat tampilan (mis. `2 Nov 2026`, `07.30`). Backend **jangan*
 
 Semua endpoint data akademik menerima query `student_id`:
 
-- **Role `siswa`:** `student_id` boleh dikosongkan; backend memakai peserta didik milik akun. Jika diisi dengan ID lain → `403`.
-- **Role `wali_siswa`:** `student_id` **wajib**, harus salah satu anak dari `GET /children`. Jika tidak terhubung → `403`.
+Semua pengguna PWA adalah wali (`wali_siswa`):
+
+- Wali punya **lebih dari satu** anak → `student_id` **wajib**.
+- Wali punya **satu** anak → `student_id` boleh dikosongkan; backend memakai anak tersebut.
+- `student_id` harus salah satu anak dari `GET /children` (yang sudah disetujui admin). Jika bukan → `403`.
+
+Frontend tetap selalu mengirim `student_id` anak aktif agar perilakunya sama untuk satu maupun beberapa anak.
 
 ### 1.6 Konteks Semester (`semester_id`)
 
@@ -149,6 +155,7 @@ Setelah aksi tulis (POST/PUT/PATCH/DELETE), frontend menampilkan **toast** singk
 
 | Aksi | Endpoint | `message` sukses yang disarankan |
 |---|---|---|
+| Kirim pengajuan hubungkan anak | `POST /children/requests` | `Pengajuan berhasil dikirim dan menunggu verifikasi admin.` |
 | Kirim pengajuan izin | `POST /attendance/leave-requests` | `Pengajuan izin terkirim ke wali kelas.` |
 | Batalkan pengajuan izin | `DELETE /attendance/leave-requests/{id}` | `Pengajuan izin dibatalkan.` |
 | Ubah nama wali | `PATCH /auth/me` | `Nama wali tersimpan.` |
@@ -156,7 +163,7 @@ Setelah aksi tulis (POST/PUT/PATCH/DELETE), frontend menampilkan **toast** singk
 | Sakelar notifikasi | `PATCH /me/preferences` | `Notifikasi diaktifkan.` / `Notifikasi dimatikan.` |
 | Keluar | `POST /auth/logout` | `Logout berhasil.` |
 
-**Konfirmasi dilakukan di frontend.** Aksi berikut sudah melewati modal konfirmasi sebelum request dikirim, jadi backend tidak perlu langkah konfirmasi tambahan (mis. token konfirmasi): Keluar, Kirim pengajuan izin, Batalkan pengajuan izin. Menghubungkan anak sudah punya langkah konfirmasi sendiri (`lookup_token`, [4.2](#42-cari-peserta-didik-langkah-1)).
+**Konfirmasi dilakukan di frontend.** Aksi berikut sudah melewati modal konfirmasi sebelum request dikirim, jadi backend tidak perlu langkah konfirmasi tambahan (mis. token konfirmasi): Keluar, Kirim pengajuan hubungkan anak, Kirim pengajuan izin, Batalkan pengajuan izin.
 
 ---
 
@@ -170,8 +177,9 @@ Setelah aksi tulis (POST/PUT/PATCH/DELETE), frontend menampilkan **toast** singk
 | Beranda — header, kartu menu, jadwal hari ini | `GET /dashboard` |
 | Beranda — tombol Ganti Profil Anak (wali > 1 anak) | `GET /children` |
 | Beranda — Berita Sekolah | `GET /news` |
-| Beranda (wali belum terhubung) — banner SPMB | `GET /spmb/active` |
-| Hubungkan Peserta Didik | `POST /children/lookup`, `POST /children` |
+| Beranda (wali belum terhubung) — Status Pengajuan (`PENDING` / `REJECTED`) | `GET /children/requests` |
+| Beranda (wali belum terhubung) — banner SPMB | — (konfigurasi statis frontend, lihat [5.3](#53-banner-spmb)) |
+| Hubungkan Peserta Didik — form & Status Pengajuan | `POST /children/requests`, `GET /children/requests` |
 | Akademik — pilihan semester | `GET /semesters` |
 | Akademik — tab Nilai (Per Mapel & Riwayat) | `GET /grades/entries` |
 | Akademik — tab Mapel | `GET /subjects` |
@@ -182,7 +190,7 @@ Setelah aksi tulis (POST/PUT/PATCH/DELETE), frontend menampilkan **toast** singk
 | Absensi — Riwayat Terbaru | `GET /attendance` |
 | Absensi — daftar Pengajuan Izin + tombol Batalkan | `GET /attendance/leave-requests`, `DELETE /attendance/leave-requests/{id}` |
 | Ajukan Izin (`/absensi/izin`, wali) | `POST /attendance/leave-requests` |
-| Profil — kartu & Data Pribadi | `GET /me` |
+| Profil — kartu & Data Pribadi peserta didik | `GET /me?student_id=` (disediakan ulang, lihat [8.1](#81-profil-peserta-didik)) |
 | Profil — kartu Akun Orang Tua / Wali (nama + email) | `GET /auth/me` |
 | Profil — sakelar Notifikasi | `GET /me/preferences`, `PATCH /me/preferences` |
 | Ubah / Buat Kata Sandi (`/profil/kata-sandi`) | `PUT /auth/password` |
@@ -234,9 +242,10 @@ Error:
 
 - `422` — `errors.email` / `errors.password` untuk validasi format
 - `422` — kredensial salah: `{"message": "Email atau kata sandi salah.", "errors": {"email": ["Email atau kata sandi salah."]}}`
+- `422` — akun bukan wali (admin/guru/siswa): `{"message": "Akun ini bukan akun wali siswa.", "errors": {"email": ["Akun ini bukan akun wali siswa."]}}`
 - `429` — terlalu banyak percobaan (disarankan 5x/menit per email + IP)
 
-> **Transisi:** selama migrasi, backend boleh tetap menerima `username` sebagai alternatif `email`.
+> **Transisi:** selama migrasi, backend boleh tetap menerima `username` sebagai alternatif `email`, dan error memakai key `errors.username`. Frontend sudah membaca `errors.email` maupun `errors.username`.
 
 ### 3.2 Login dengan Google
 
@@ -255,9 +264,10 @@ Request:
 
 Response `200`: sama dengan `POST /auth/login`, ditambah `data.is_new_account`.
 
-Aturan pendaftaran otomatis:
+Login Google **hanya untuk wali**:
 
-- Email Google **sudah terdaftar** → masuk ke akun tersebut (role apa pun). `is_new_account: false`.
+- Email Google sudah terdaftar sebagai `wali_siswa` → masuk. `is_new_account: false`.
+- Email Google terdaftar dengan **role lain** (admin/guru) → ditolak `422`: `Akun ini bukan akun wali siswa.`
 - Email Google **belum terdaftar** → backend **otomatis membuat akun** role `wali_siswa` dengan `name` dan `avatar_url` dari profil Google, `has_password: false`, belum terhubung ke anak mana pun. `is_new_account: true`. Frontend lalu menampilkan Beranda versi belum terhubung.
 - Akun yang dibuat lewat Google bisa **menambahkan kata sandi** lewat `PUT /auth/password` ([3.5](#35-ubah--buat-kata-sandi)), sehingga tetap bisa masuk dengan email + kata sandi jika Google tidak bisa dipakai.
 
@@ -265,6 +275,7 @@ Error:
 
 - `401` — `id_token` tidak valid / kedaluwarsa
 - `422` — email Google belum diverifikasi (`email_verified = false`)
+- `422` — email terdaftar dengan role selain `wali_siswa`: `Akun ini bukan akun wali siswa.`
 
 ### 3.3 Akun Login
 
@@ -282,8 +293,7 @@ Response `200`:
     "role": "wali_siswa",
     "avatar_url": null,
     "has_password": true,
-    "linked_students_count": 0,
-    "peserta_didik": null
+    "linked_students_count": 0
   }
 }
 ```
@@ -291,10 +301,9 @@ Response `200`:
 | Field | Keterangan |
 |---|---|
 | `name`, `email` | ditampilkan di kartu **Akun Orang Tua / Wali** di Profil; `email` tampil terkunci di form Edit Profil |
-| `role` | `siswa` \| `wali_siswa` |
+| `role` | selalu `wali_siswa` (akun lain tidak bisa login) |
 | `has_password` | `false` jika akun dibuat lewat Google dan belum punya kata sandi → menu Profil tampil sebagai **Buat Kata Sandi** (tanpa kolom kata sandi lama) |
-| `linked_students_count` | wali: jumlah anak terhubung. `0` → **Beranda versi belum terhubung**; `> 1` → tombol notifikasi di Beranda diganti tombol **Ganti Profil Anak** |
-| `peserta_didik` | role `siswa`: ringkasan peserta didik miliknya (bentuk seperti item `GET /children`). Role `wali_siswa`: `null` |
+| `linked_students_count` | jumlah anak yang sudah disetujui admin. `0` → **Beranda versi belum terhubung**; `> 1` → tombol notifikasi di Beranda diganti tombol **Ganti Profil Anak** |
 
 ### 3.4 Logout
 
@@ -352,7 +361,6 @@ Satu-satunya data yang boleh diubah sendiri adalah **nama wali** (nama akun). Da
 - Response `200`: `message` `Nama wali tersimpan.`, `data` objek sama dengan `GET /auth/me`. Frontend lalu kembali ke Profil dan menampilkan toast berisi nama baru
 - Error `422`: `errors.name` (mis. `Nama wali harus 3–100 karakter.`)
 - `email` **tidak** bisa diubah lewat endpoint ini (field diabaikan bila dikirim)
-- Role `siswa` → `403` (nama siswa mengikuti data induk sekolah)
 
 ---
 
@@ -384,71 +392,79 @@ Response `200`:
 }
 ```
 
-- Array kosong `[]` → tampilkan Beranda versi "belum ada peserta didik".
+- Hanya berisi anak yang **sudah disetujui admin** (pengajuan `APPROVED`, lihat [4.2](#42-ajukan-hubungkan-anak)).
+- Array kosong `[]` → tampilkan Beranda versi "belum ada peserta didik", beserta pengajuan yang masih `PENDING` / `REJECTED`.
 - Beranda hanya menampilkan **satu anak** dalam satu waktu. Lebih dari satu anak → tombol notifikasi di header Beranda diganti tombol **Ganti Profil Anak**, yang membuka daftar dari endpoint ini. Pilihan anak aktif disimpan di perangkat dan dikirim sebagai `student_id` ke endpoint lain.
 - `relation`: `ayah` \| `ibu` \| `wali`.
 
-### 4.2 Cari Peserta Didik (Langkah 1)
+### 4.2 Ajukan Hubungkan Anak
 
-**`POST /children/lookup`** · Auth: ya (role `wali_siswa`) · Halaman: Hubungkan Peserta Didik → "Cari Peserta Didik"
+**`POST /children/requests`** · Auth: ya (role `wali_siswa`) · Rate limit 10x/menit · Halaman: Hubungkan Peserta Didik → "Kirim Pengajuan" · **sudah aktif**
 
-Request:
+Anak **tidak langsung terhubung**. Wali mengirim pengajuan, lalu admin sekolah memverifikasi dan menyetujui atau menolaknya.
 
 ```json
 {
-  "identity": "2024017",
-  "birth_date": "2010-05-14"
+  "nik": "6471000000000001",
+  "tanggal_lahir": "2018-05-10",
+  "nisn": "0011223344",
+  "hubungan": "IBU"
 }
 ```
 
-| Field | Tipe | Aturan |
-|---|---|---|
-| `identity` | string | wajib, 5–10 digit angka. Dicocokkan ke **NIS atau NISN** |
-| `birth_date` | date | wajib, harus cocok dengan tanggal lahir peserta didik |
+| Field | Aturan |
+|---|---|
+| `nik` | wajib, 16 digit |
+| `tanggal_lahir` | wajib, `YYYY-MM-DD`, sebelum hari ini |
+| `nisn` | opsional, 10 digit |
+| `hubungan` | wajib, `AYAH` \| `IBU` \| `WALI` |
 
-Response `200` — dipakai untuk layar konfirmasi "Apakah ini anak Anda?":
+Response `201`:
 
 ```json
 {
-  "message": "OK",
+  "message": "Pengajuan berhasil dikirim dan menunggu verifikasi admin.",
   "data": {
-    "lookup_token": "lk_01KQ...",
-    "expires_at": "2026-11-02T10:25:00+08:00",
-    "student": {
-      "name": "Naura Aulia Putri",
-      "nis": "2024017",
-      "class_name": "XI IPA 2",
-      "school_name": "SMA Islam Balikpapan",
-      "birth_date": "2010-05-14",
-      "homeroom_teacher": "Ibu Sari Wulandari",
-      "photo_url": null
-    }
+    "id": "01K...",
+    "nik": "6471000000000001",
+    "tanggal_lahir": "2018-05-10",
+    "nisn": "0011223344",
+    "relationship": "Ibu",
+    "status": "PENDING",
+    "status_label": "Menunggu Verifikasi",
+    "note": null,
+    "submitted_at": "2026-11-02T10:00:00+00:00",
+    "processed_at": null,
+    "student": null
   }
 }
 ```
 
-Error:
+Error `422` (key `errors.nik`):
 
-- `404` — `{"message": "Data tidak ditemukan. Pastikan NIS/NISN dan tanggal lahir sesuai data di sekolah."}`. **Jangan** bedakan antara "NIS tidak ada" dan "tanggal lahir salah" (mencegah penebakan data).
-- `409` — peserta didik sudah terhubung dengan akun ini.
-- `429` — batasi percobaan, disarankan 5x per 10 menit per akun.
+- `Anak ini sudah terhubung dengan akun Anda.`
+- `Pengajuan untuk anak ini masih menunggu verifikasi.`
 
-> `lookup_token` mengikat hasil pencarian ke akun yang mencari, berlaku ±10 menit, dan hanya bisa dipakai sekali.
+Alur di frontend: form (NIK, tanggal lahir, NISN opsional, hubungan) → modal konfirmasi berisi ringkasan → `POST` → layar **Menunggu verifikasi admin** → daftar Status Pengajuan. Error `errors.nik` tampil di bawah kolom NIK.
 
-### 4.3 Hubungkan Peserta Didik (Langkah 2)
+> `submitted_at` / `processed_at` di contoh memakai offset `+00:00`. Frontend memformat dengan zona waktu perangkat, jadi offset apa pun aman, asalkan ISO 8601 lengkap (lihat [1.4](#14-tipe-data)).
 
-**`POST /children`** · Auth: ya (role `wali_siswa`) · Halaman: Hubungkan Peserta Didik → "Ya, Hubungkan"
+### 4.3 Riwayat Pengajuan
 
-```json
-{
-  "lookup_token": "lk_01KQ...",
-  "relation": "ibu"
-}
-```
+**`GET /children/requests`** · Auth: ya (role `wali_siswa`) · Halaman: Hubungkan Peserta Didik → Status Pengajuan, Beranda (wali belum terhubung) · **sudah aktif**
 
-Response `201`: satu item dengan bentuk sama seperti `GET /children`.
+Riwayat pengajuan milik akun, terbaru dulu. Item berbentuk sama seperti `data` di `POST`.
 
-Error: `422` jika `lookup_token` tidak valid/kedaluwarsa (frontend kembali ke langkah 1), `409` jika sudah terhubung.
+| Field | Keterangan |
+|---|---|
+| `status` | `PENDING` \| `APPROVED` \| `REJECTED` |
+| `status_label` | teks siap tampil untuk label status (`Menunggu Verifikasi`, `Disetujui`, `Ditolak`) |
+| `note` | alasan penolakan dari admin, terisi saat `REJECTED` |
+| `student` | `{ "id", "name" }` **hanya** saat `APPROVED`, selain itu `null` |
+
+- Backend sengaja tidak menampilkan data siswa sebelum disetujui, agar NIK + tanggal lahir tidak bisa dipakai menebak identitas anak. Karena itu kartu pengajuan menampilkan NIK yang disamarkan (`6471 •••• •••• 0001`), tanggal lahir, dan hubungan; nama anak baru tampil setelah `APPROVED`.
+- Pengajuan `REJECTED` boleh diajukan ulang. Tombol **Ajukan Ulang** mengisi ulang form dengan data pengajuan tersebut.
+- Beranda versi belum terhubung menampilkan pengajuan `PENDING` dan `REJECTED` (beserta `note`); `APPROVED` tidak perlu tampil di sana karena anaknya sudah muncul di `GET /children`.
 
 ### 4.4 Putuskan Hubungan *(opsional)*
 
@@ -503,7 +519,7 @@ Dipakai untuk:
 | Tampilan | Field |
 |---|---|
 | "Halo, Naura!" · "Kelas XI IPA 2 · Semester Ganjil" | `student.nickname`, `student.class_name`, `student.semester.name` |
-| Titik merah lonceng (hanya jika wali punya satu anak / role siswa) | `unread_notifications_count > 0` |
+| Titik merah lonceng (hanya jika wali punya satu anak) | `unread_notifications_count > 0` |
 | Kartu Nilai "3 nilai baru" | `new_grades_count` = jumlah nilai yang terbit dalam **7 hari terakhir** |
 | Kartu Absensi "Kehadiran 96%" | `attendance_rate` (bulat, 0–100, semester aktif) |
 | Kartu Jadwal "6 mapel hari ini" | `today.lessons.length` |
@@ -549,22 +565,14 @@ Response `200`:
 
 ### 5.3 Banner SPMB
 
-**`GET /spmb/active`** · Auth: ya · Halaman: Beranda (wali belum terhubung)
+**Tidak ada endpoint.** SPMB dikelola sistem terpisah, jadi backend PWA tidak menyediakan data SPMB.
 
-Response `200` jika ada pendaftaran yang dibuka:
+Banner di Beranda (wali belum terhubung) memakai konfigurasi statis frontend:
 
-```json
-{
-  "message": "OK",
-  "data": {
-    "id": "01...",
-    "school_year": "2027/2028",
-    "registration_url": "https://spmb.bis.sch.id/daftar"
-  }
-}
-```
-
-Jika tidak ada pendaftaran aktif → `data: null`, dan banner disembunyikan. UI hanya menampilkan judul "SPMB {school_year}" dan tombol "Daftar" yang membuka `registration_url`.
+| Variabel env | Contoh | Keterangan |
+|---|---|---|
+| `VITE_SPMB_SCHOOL_YEAR` | `2027/2028` | judul banner "SPMB {tahun ajaran}" |
+| `VITE_SPMB_URL` | URL halaman pendaftaran | tombol "Daftar" membuka URL ini di tab baru. **Kosong → banner disembunyikan** |
 
 ---
 
@@ -654,6 +662,8 @@ Response `200`:
 | `file` | wajib jika `type = file` (lihat [1.7](#17-file)) |
 | `subject.passing_score` | KKM mapel. Frontend menandai skor di bawahnya ("< KKM 75") |
 | `published_by` | nama guru/penerbit untuk "Diterbitkan oleh ..." |
+
+> **Sementara:** backend belum punya status draft/terbit nilai. `published_at` diisi **waktu nilai diinput guru**, dan semua nilai yang sudah diinput dianggap terbit. Label "Baru" ([6.3](#63-label-baru)) ikut memakai waktu input ini.
 
 Urutan: `published_at` terbaru dulu. Daftar mapel di mode Per Mapel mengikuti urutan `GET /subjects`.
 
@@ -884,8 +894,6 @@ Alur: **orang tua/wali mengajukan** dari aplikasi → **wali kelas menyetujui at
 
 **`POST /attendance/leave-requests`** · Auth: ya (role `wali_siswa`) · `multipart/form-data` · Halaman: Absensi → "Ajukan Izin"
 
-Role `siswa` → `403` (tombol Ajukan Izin hanya untuk wali).
-
 | Field | Tipe | Aturan |
 |---|---|---|
 | `student_id` | string | wajib |
@@ -930,7 +938,7 @@ Error:
 |---|---|---|
 | `422` | validasi | `errors.type`, `errors.start_date`, `errors.end_date`, `errors.reason`, `errors.attachment` (mis. `Ukuran file maksimal 5 MB.`) |
 | `409` | sudah ada pengajuan `menunggu`/`disetujui` yang tanggalnya bertumpuk | `Sudah ada pengajuan izin pada tanggal tersebut.` |
-| `403` | role `siswa`, atau `student_id` bukan anak akun ini | — |
+| `403` | `student_id` bukan anak akun ini | — |
 
 **`GET /attendance/leave-requests?student_id=`** · paginated · Halaman: Absensi → bagian **Pengajuan Izin**
 
@@ -983,7 +991,9 @@ Riwayat pengajuan, urut `created_at` terbaru. Item berbentuk sama dengan `data` 
 
 **`GET /me?student_id=`** · Auth: ya · Halaman: Profil
 
-Endpoint ini sudah aktif (lihat `API_USAGE.md`). Field yang dibutuhkan UI baru:
+> **Status:** `GET /me` lama **sudah digabung** ke `GET /auth/me`. Untuk halaman Profil, backend akan menyediakan ulang `GET /me?student_id=` khusus sebagai **profil peserta didik** (bukan akun login). `student_id` mengikuti aturan [1.5](#15-konteks-peserta-didik-student_id).
+
+Field yang dibutuhkan UI:
 
 ```json
 {
@@ -1015,7 +1025,7 @@ Endpoint ini sudah aktif (lihat `API_USAGE.md`). Field yang dibutuhkan UI baru:
 | Email, No. HP | `email`, `no_hp` (**sudah disamarkan** oleh backend) |
 | Wali kelas | `wali_kelas` |
 
-Tambahan dari endpoint aktif: `nis`, `kelas`, `email`, `no_hp`, `wali_kelas`, `foto_url`. Untuk wali, `student_id` wajib.
+Semua field di atas perlu ada di `GET /me?student_id=` yang baru.
 
 ### 8.2 Preferensi Notifikasi
 
@@ -1141,17 +1151,21 @@ Nominal dalam rupiah, integer (tanpa desimal).
 | Endpoint aktif | Perubahan yang dibutuhkan | Sifat |
 |---|---|---|
 | `POST /auth/login` | identitas login `email` (bukan `username`) | **breaking** — dukung keduanya selama transisi |
-| `GET /auth/me` | tambah `has_password`, `linked_students_count`, `avatar_url` | tambahan |
-| `GET /children` | tambah `relation`, `school`, `photo_url` | tambahan |
+| `POST /auth/login` | tolak akun selain `wali_siswa`: `422` `Akun ini bukan akun wali siswa.` | **sudah aktif** |
+| `GET /auth/me` | tambah `has_password`, `linked_students_count`, `avatar_url`; hapus `peserta_didik`; `role` selalu `wali_siswa` | tambahan |
+| `POST /children/requests`, `GET /children/requests` | alur hubungkan anak lewat approval admin ([4.2](#42-ajukan-hubungkan-anak)) | **sudah aktif** |
+| `GET /children` | hanya anak yang disetujui admin; tambah `relation`, `school`, `photo_url` | tambahan |
 | `GET /dashboard` | bentuk baru: `unread_notifications_count`, `new_grades_count`, `attendance_rate`, `today.lessons`. Hapus `latest_report`, `school_alert`, `agendas`, `news` | **breaking** |
 | `GET /schedule` | dikelompokkan per hari (`days[].lessons[]`), `subject` jadi objek, tambah `is_school_day` | **breaking** |
 | `GET /attendance` | status huruf kecil, tambah `check_in_at`, `check_out_at`, `attachment`, pagination | **breaking** |
 | `GET /attendance/summary` | tambah `attendance_rate` | tambahan |
 | `GET /grades` | **tidak dipakai UI baru**, diganti `GET /grades/entries` | tetap boleh ada |
-| `GET /me` | tambah `nis`, `kelas`, `email`, `no_hp`, `wali_kelas`, `foto_url`; dukung `student_id` | tambahan |
-| `GET /reports`, `GET /reports/{id}` | halaman Rapor tidak ditampilkan di menu; endpoint aktif tetap dipertahankan apa adanya | tidak berubah |
+| `GET /me` | lama **sudah digabung** ke `GET /auth/me`. Disediakan ulang sebagai `GET /me?student_id=` = profil peserta didik ([8.1](#81-profil-peserta-didik)) | baru (nama lama) |
+| `GET /reports`, `GET /reports/{id}` | **sudah dihapus**. Rapor diganti nilai yang diinput guru (`GET /grades/entries`) | dihapus |
 
-Endpoint baru: `/auth/google`, `/auth/password`, `PATCH /auth/me`, `/children/lookup`, `POST /children`, `/news`, `/spmb/active`, `/semesters`, `/grades/entries`, `/subjects`, `/classroom`, `/classroom/students`, `/attendance/today`, `/attendance/calendar`, `/attendance/leave-requests`, `/me/preferences`, `/me/guardians`, `/notifications/read-all`.
+Endpoint baru yang belum ada: `/auth/google`, `/auth/password`, `PATCH /auth/me`, `GET /me?student_id=`, `/news`, `/semesters`, `/grades/entries`, `/subjects`, `/classroom`, `/classroom/students`, `/attendance/today`, `/attendance/calendar`, `/attendance/leave-requests`, `/me/preferences`, `/me/guardians`, `/notifications/read-all`.
+
+Tidak dibuat di backend ini: `GET /spmb/active` (SPMB punya sistem terpisah, [5.3](#53-banner-spmb)). Dihapus dari rencana: `POST /children/lookup`, `lookup_token`, `POST /children` (diganti pengajuan ke admin).
 
 ---
 
@@ -1162,15 +1176,15 @@ Urutan yang disarankan agar frontend bisa beralih dari data dummy secara bertaha
 | Prioritas | Endpoint | Membuka halaman |
 |---|---|---|
 | P0 | `POST /auth/login` (email), `GET /auth/me`, `POST /auth/logout` | Login & sesi |
-| P0 | `GET /children`, `POST /children/lookup`, `POST /children` | Alur wali & Hubungkan Peserta Didik |
+| P0 | `GET /children`, `POST /children/requests` & `GET /children/requests` (sudah aktif) | Alur wali & Hubungkan Peserta Didik |
 | P0 | `GET /dashboard`, `GET /news` | Beranda |
 | P1 | `GET /semesters`, `GET /grades/entries` | Akademik → Nilai |
 | P1 | `GET /subjects`, `GET /classroom`, `GET /classroom/students`, `GET /schedule` | Akademik → Mapel & Kelas |
 | P1 | `GET /attendance/today`, `GET /attendance/summary`, `GET /attendance/calendar`, `GET /attendance` | Absensi |
-| P1 | `GET /me` (field baru) | Profil |
+| P1 | `GET /me?student_id=` (profil peserta didik) | Profil |
 | P2 | `GET /notifications`, read, read-all | Notifikasi |
 | P2 | `PUT /auth/password`, `PATCH /auth/me`, `/me/preferences` | Kata Sandi, Edit Profil, sakelar Notifikasi (UI sudah siap) |
-| P2 | `POST /auth/google`, `/spmb/active` | Login Google, banner SPMB |
+| P2 | `POST /auth/google` | Login Google |
 | P2 | `POST`, `GET`, `DELETE /attendance/leave-requests` | Ajukan Izin & daftar Pengajuan Izin (UI sudah siap) |
 | P3 | `/me/guardians` | Profil → Data Orang Tua / Wali |
 | Ditunda | Pembayaran | — |
@@ -1190,3 +1204,9 @@ Keputusan yang sudah diambil dan menjadi dasar kontrak di atas:
 | 5 | Edit profil & kata sandi | Hanya nama wali yang bisa diubah. Akun Google bisa menambahkan kata sandi | [3.5](#35-ubah--buat-kata-sandi), [3.6](#36-ubah-nama-wali) |
 | 6 | Wali dengan beberapa anak | Beranda menampilkan satu anak; tombol notifikasi diganti tombol Ganti Profil Anak | [4.1](#41-daftar-anak-terhubung) |
 | 7 | Label "Baru" pada nilai | Tidak disimpan; dihitung dari `published_at` (7 hari terakhir) | [6.3](#63-label-baru) |
+| 8 | Hubungkan anak | Lewat pengajuan yang diverifikasi admin (NIK + tanggal lahir), bukan langsung terhubung | [4.2](#42-ajukan-hubungkan-anak) |
+| 9 | SPMB | Tidak dibuat di backend ini; banner memakai konfigurasi statis frontend | [5.3](#53-banner-spmb) |
+| 10 | Siapa yang login ke PWA | Hanya `wali_siswa`. Siswa dan role lain ditolak `422` | [1.5](#15-konteks-peserta-didik-student_id), [3.1](#31-login-dengan-email) |
+| 11 | Login Google | Hanya untuk wali; email dengan role lain ditolak | [3.2](#32-login-dengan-google) |
+| 12 | Rapor & `GET /me` lama | `/reports` dihapus; `GET /me` lama digabung ke `/auth/me`, disediakan ulang sebagai profil peserta didik | [11](#11-perubahan-terhadap-endpoint-aktif) |
+| 13 | Nilai terbit | Belum ada status draft; `published_at` = waktu input guru | [6.2](#62-nilai-terbit) |

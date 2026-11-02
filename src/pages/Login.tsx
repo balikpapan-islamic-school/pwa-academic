@@ -65,7 +65,8 @@ export default function Login() {
         } catch (caughtError) {
             if (caughtError instanceof ApiError) {
                 const nextFieldErrors = {
-                    username: caughtError.errors?.username,
+                    // Backend memakai key `username` selama transisi, lalu `email` setelah login email aktif.
+                    username: caughtError.errors?.email ?? caughtError.errors?.username,
                     password: caughtError.errors?.password,
                 }
                 const hasFieldErrors = Boolean(nextFieldErrors.username?.length || nextFieldErrors.password?.length)

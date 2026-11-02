@@ -1,5 +1,5 @@
 import { ReactNode, useState } from 'react'
-import { ArrowLeft, Check, LoaderCircle, TriangleAlert } from 'lucide-react'
+import { ArrowLeft, Check, LoaderCircle, LucideIcon, TriangleAlert } from 'lucide-react'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { cn } from '@/lib/utils'
 
@@ -105,17 +105,19 @@ export function SubmitButton({ isLoading, loadingLabel, children }: SubmitButton
 }
 
 type SuccessCardProps = {
+    // Ikon di lingkaran atas; bawaan tanda centang.
+    icon?: LucideIcon
     title: string
     description: ReactNode
     children?: ReactNode
 }
 
-export function SuccessCard({ title, description, children }: SuccessCardProps) {
+export function SuccessCard({ icon: Icon = Check, title, description, children }: SuccessCardProps) {
     return (
         <section aria-live="polite" className={cn(focusCardClassName, 'items-center py-7 text-center')}>
             <span aria-hidden="true" className="flex size-[76px] items-center justify-center rounded-full bg-brand-soft motion-safe:animate-pop-in">
                 <span className="flex size-14 items-center justify-center rounded-full bg-primary text-white">
-                    <Check className="size-8" strokeWidth={3} />
+                    <Icon className="size-8" strokeWidth={3} />
                 </span>
             </span>
             <div>
