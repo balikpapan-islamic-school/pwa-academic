@@ -1,7 +1,9 @@
-import { Newspaper } from 'lucide-react'
+import { FileText, Newspaper, SearchX } from 'lucide-react'
 import { useParams } from 'react-router-dom'
 import { FocusPage } from '@/components/kit/focus-page'
-import { NewsContent } from '@/components/news/news-content'
+import { hasNewsText, NewsContent } from '@/components/news/news-content'
+import { EmptyState, LoadErrorState } from '@/components/shared/empty-state'
+import { LoadingRegion } from '@/components/shared/skeletons'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useApiData } from '@/hooks/use-api-data'
 import { useGoBack } from '@/hooks/use-go-back'
@@ -23,32 +25,28 @@ export default function BeritaDetail() {
 
         return (
             <FocusPage title="Berita Sekolah" onBack={goBack}>
-                <div className="relative mx-5 -mt-9 flex flex-col gap-3 rounded-[28px] bg-card px-5 py-[22px] shadow-float">
-                    {news.status === 'error' ? (
-                        <>
-                            <p className="text-center text-sm text-subtle">
-                                {isNotFound ? 'Berita tidak ditemukan atau sudah dihapus.' : 'Berita belum dapat dimuat. Periksa koneksi internet, lalu coba lagi.'}
-                            </p>
-                            {isNotFound ? null : (
-                                <button type="button" onClick={news.reload} className="h-11 self-center rounded-full border-2 border-border px-5 text-sm font-extrabold text-primary">
-                                    Coba lagi
-                                </button>
-                            )}
-                        </>
+                {news.status === 'error' ? (
+                    isNotFound ? (
+                        <EmptyState icon={SearchX} tone="sky" title="Berita tidak ditemukan" description="Berita ini mungkin sudah dihapus atau dipindahkan." className="relative mx-5 -mt-9 rounded-[28px] shadow-float" />
                     ) : (
-                        <div aria-busy="true" aria-label="Memuat berita" className="flex flex-col gap-3">
-                            <Skeleton className="h-[180px] rounded-2xl" />
-                            <Skeleton className="h-4 w-full" />
-                            <Skeleton className="h-4 w-11/12" />
-                            <Skeleton className="h-4 w-3/4" />
+                        <LoadErrorState title="Berita belum dapat dimuat" onRetry={news.reload} className="relative mx-5 -mt-9 rounded-[28px] shadow-float" />
+                    )
+                ) : (
+                    // Bentuk sama dengan artikel: sampul selebar kartu lalu paragraf.
+                    <LoadingRegion label="Memuat berita" className="relative mx-5 -mt-9 gap-4 overflow-hidden rounded-[28px] bg-card pb-[22px] shadow-float">
+                        <Skeleton className="h-[150px] rounded-none" />
+                        <div className="flex flex-col gap-3 px-5">
+                            {['w-full', 'w-11/12', 'w-full', 'w-3/4', 'w-full', 'w-2/3'].map((width, index) => <Skeleton key={index} className={cn('h-3.5', width)} />)}
                         </div>
-                    )}
-                </div>
+                    </LoadingRegion>
+                )}
             </FocusPage>
         )
     }
 
     const tone = newsCategoryTones[article.category]
+    const summary = article.summary.trim()
+    const hasContent = hasNewsText(article.content)
 
     return (
         <FocusPage
@@ -68,8 +66,17 @@ export default function BeritaDetail() {
                         <Newspaper className="size-12" strokeWidth={1.6} />
                     </div>
                 )}
-                <div className="flex flex-col gap-3 px-5">
-                    {article.content ? <NewsContent content={article.content} /> : <p className="text-[15px] leading-relaxed">{article.summary}</p>}
+                <div className="flex flex-col gap-4 px-5">
+                    {/* Ringkasan tampil sebagai paragraf pembuka; tanpa isi lengkap, ringkasan menjadi seluruh isi berita. */}
+                    {summary ? (
+                        <p className={cn('whitespace-pre-line leading-relaxed', hasContent ? 'border-l-4 border-primary pl-3.5 text-base font-bold text-[#44544A]' : 'text-[15px]')}>
+                            {summary}
+                        </p>
+                    ) : null}
+                    {hasContent ? <NewsContent content={article.content} /> : null}
+                    {!summary && !hasContent ? (
+                        <EmptyState layout="inline" icon={FileText} tone="sky" title="Isi berita belum tersedia" description="Sekolah belum menuliskan detail untuk berita ini." className="bg-[#F1F6F1]" />
+                    ) : null}
                 </div>
             </article>
         </FocusPage>

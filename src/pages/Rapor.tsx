@@ -3,9 +3,12 @@ import { FileSearch } from 'lucide-react'
 import { PageHeader, PageHeaderDescription, PageHeaderHeading } from '@/components/page-header'
 import { ReportList } from '@/components/rapor/report-list'
 import { EmptyState } from '@/components/shared/empty-state'
-import { PageSkeleton } from '@/components/shared/page-skeleton'
+import { LoadingRegion } from '@/components/shared/skeletons'
+import { repeat } from '@/lib/utils'
 import { SectionHeading } from '@/components/shared/section-heading'
 import { Card, CardContent } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
+import { useRefreshSignal } from '@/contexts/RefreshContext'
 import { useStudent } from '@/contexts/StudentContext'
 import { academicService } from '@/services'
 import { ReportSummary } from '@/types/academic'
@@ -14,33 +17,35 @@ export default function Rapor() {
     const { activeStudent } = useStudent()
     const [summaries, setSummaries] = useState<ReportSummary[]>([])
     const [isLoading, setIsLoading] = useState(true)
+    const { refreshKey, track, consumeRefresh } = useRefreshSignal()
+    const studentId = activeStudent?.id
 
     useEffect(() => {
+        const isRefresh = consumeRefresh()
         let cancelled = false
 
-        if (!activeStudent) {
+        if (!studentId) {
             setSummaries([])
             setIsLoading(false)
             return
         }
 
-        setIsLoading(true)
+        if (!isRefresh) {
+            setIsLoading(true)
+        }
 
-        academicService.getReportSummaries(activeStudent.id).then((result) => {
+        track(academicService.getReportSummaries(studentId).then((result) => {
             if (!cancelled) {
                 setSummaries(result)
                 setIsLoading(false)
             }
-        })
+        }))
 
         return () => {
             cancelled = true
         }
-    }, [activeStudent])
-
-    if (isLoading) {
-        return <PageSkeleton />
-    }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [studentId, refreshKey])
 
     return (
         <div className="space-y-6">
@@ -49,7 +54,32 @@ export default function Rapor() {
                 <PageHeaderDescription>Akses hasil belajar semester siswa beserta catatan akademik penting.</PageHeaderDescription>
             </PageHeader>
 
-            {summaries.length > 0 ? (
+            {isLoading ? (
+                <LoadingRegion label="Memuat rapor" className="gap-4">
+                    <Card className="border-none bg-gradient-to-br from-amber-500 via-orange-500 to-rose-500 shadow-lg">
+                        <CardContent className="flex flex-col gap-4 p-4 sm:p-5">
+                            <Skeleton tone="inverse" className="h-3 w-32" />
+                            <Skeleton tone="inverse" className="h-7 w-56" />
+                            <Skeleton tone="inverse" className="h-3.5 w-full" />
+                            <div className="grid gap-3 sm:grid-cols-2">
+                                {repeat(2, (index) => <Skeleton key={index} tone="inverse" className="h-[104px] rounded-2xl" />)}
+                            </div>
+                        </CardContent>
+                    </Card>
+                    {repeat(2, (index) => (
+                        <Card key={index}>
+                            <CardContent className="flex flex-col gap-4 py-5">
+                                <div className="flex flex-col gap-2.5">
+                                    <Skeleton className="h-4 w-40" />
+                                    <Skeleton className="h-3 w-56" />
+                                </div>
+                                <Skeleton className="h-6 w-16 rounded-full" />
+                                <Skeleton className="h-9 rounded-md" />
+                            </CardContent>
+                        </Card>
+                    ))}
+                </LoadingRegion>
+            ) : summaries.length > 0 ? (
                 <div className="space-y-4">
                     <Card className="overflow-hidden border-none bg-gradient-to-br from-amber-500 via-orange-500 to-rose-500 text-white shadow-lg">
                         <CardContent className="grid gap-4 p-4 sm:p-5 lg:grid-cols-[1.05fr_0.95fr] lg:gap-6 lg:p-8">
@@ -84,7 +114,7 @@ export default function Rapor() {
                     </div>
                 </div>
             ) : (
-                <EmptyState title="Belum ada rapor" description="Rapor akan muncul ketika sudah dipublikasikan dari sistem akademik utama." icon={FileSearch} />
+                <EmptyState icon={FileSearch} tone="sun" title="Belum ada rapor" description="Rapor akan muncul ketika sudah dipublikasikan dari sistem akademik utama." />
             )}
         </div>
     )

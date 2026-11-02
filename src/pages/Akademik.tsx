@@ -1,17 +1,19 @@
-import { ReactNode, useState } from 'react'
-import { Check, ChevronDown, ChevronRight } from 'lucide-react'
+import { useState } from 'react'
+import { BookOpen, CalendarDays, Check, ChevronDown, ChevronRight, Library, PartyPopper, Sun } from 'lucide-react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { EntryDetail, EntryResult, GradeFileViewer, NewBadge } from '@/components/akademik/grade-entry'
 import { ScreenHeader } from '@/components/kit/screen-header'
 import { SegmentedTabs } from '@/components/kit/segmented-tabs'
 import { toneAt } from '@/components/kit/tones'
+import { EmptyState, LoadErrorState } from '@/components/shared/empty-state'
+import { LoadingRegion, RowSkeleton } from '@/components/shared/skeletons'
 import { Sheet, SheetContent, SheetDescription, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useStudent } from '@/contexts/StudentContext'
 import { useApiData } from '@/hooks/use-api-data'
 import { byNewest, countLabel, isNewGrade, subjectTone } from '@/lib/grades'
 import { dayNames, formatClock, monthNames, parseIsoDate, parseIsoDateTime, toIsoDate } from '@/lib/format'
-import { cn } from '@/lib/utils'
+import { cn, repeat } from '@/lib/utils'
 import { academicService } from '@/services'
 import { Classmate, Classroom, FileGradeEntry, GradeEntry, Semester, Subject } from '@/types/academic'
 
@@ -27,15 +29,81 @@ function isAkademikTab(value: string | null): value is AkademikTab {
     return value === 'nilai' || value === 'mapel' || value === 'kelas'
 }
 
-function TabMessage({ children }: { children: ReactNode }) {
-    return <p className="rounded-[20px] bg-card p-4 text-center text-sm text-subtle">{children}</p>
+function SubjectListSkeleton() {
+    return (
+        <LoadingRegion label="Memuat nilai">
+            {repeat(4, (index) => <RowSkeleton key={index} lines={['h-4 w-32', 'h-3 w-44', 'h-3 w-28']} trailing="chevron" />)}
+        </LoadingRegion>
+    )
 }
 
-function ListSkeleton({ count = 4, className = 'h-[72px] rounded-[20px]' }: { count?: number, className?: string }) {
+function MapelSkeleton() {
     return (
-        <div aria-busy="true" aria-label="Memuat" className="flex flex-col gap-2.5">
-            {Array.from({ length: count }, (_, index) => <Skeleton key={index} className={className} />)}
-        </div>
+        <LoadingRegion label="Memuat mata pelajaran" className="gap-3">
+            <Skeleton className="my-[3px] h-3.5 w-56" />
+            <div className="grid grid-cols-2 gap-3">
+                {repeat(4, (index) => (
+                    <div key={index} className={cn('flex min-h-[150px] flex-col rounded-[22px] p-3.5', toneAt(index).bg)}>
+                        <Skeleton tone="pastel" className="size-[42px] rounded-[14px]" />
+                        <Skeleton tone="pastel" className="mt-4 h-4 w-24" />
+                        <Skeleton tone="pastel" className="mt-2.5 h-3 w-20" />
+                        <Skeleton tone="pastel" className="mt-3 h-3 w-16" />
+                    </div>
+                ))}
+            </div>
+        </LoadingRegion>
+    )
+}
+
+function ClassroomSkeleton() {
+    return (
+        <LoadingRegion label="Memuat data kelas" className="gap-3.5 rounded-3xl bg-card p-[18px]">
+            <div className="flex items-center gap-3.5">
+                <Skeleton className="size-[60px] shrink-0 rounded-[18px]" />
+                <div className="flex flex-col gap-2.5">
+                    <Skeleton className="h-5 w-28" />
+                    <Skeleton className="h-3 w-36" />
+                </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2.5">
+                {repeat(2, (index) => (
+                    <div key={index} className="flex flex-col gap-2 rounded-2xl bg-[#F1F6F1] p-3">
+                        <Skeleton className="h-3 w-16 bg-border" />
+                        <Skeleton className="h-3.5 w-24 bg-border" />
+                    </div>
+                ))}
+            </div>
+        </LoadingRegion>
+    )
+}
+
+function ScheduleSkeleton() {
+    return (
+        <LoadingRegion label="Memuat jadwal" className="gap-3.5">
+            <div className="flex gap-2">
+                {repeat(5, (index) => (
+                    <div key={index} className="flex h-16 flex-1 flex-col items-center justify-center gap-2 rounded-[18px] bg-card">
+                        <Skeleton className="h-2.5 w-6" />
+                        <Skeleton className="h-4 w-5" />
+                    </div>
+                ))}
+            </div>
+            <div className="rounded-3xl bg-card px-4 py-1.5">
+                {repeat(3, (index) => (
+                    <div key={index} className="flex items-center gap-3.5 border-b border-muted py-3 last:border-b-0">
+                        <div className="flex w-[54px] shrink-0 flex-col gap-2">
+                            <Skeleton className="h-3 w-10" />
+                            <Skeleton className="h-3 w-10" />
+                        </div>
+                        <Skeleton className="w-1.5 self-stretch rounded-full" />
+                        <div className="flex flex-grow flex-col gap-2.5">
+                            <Skeleton className="h-4 w-32" />
+                            <Skeleton className="h-3 w-40" />
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </LoadingRegion>
     )
 }
 
@@ -181,11 +249,11 @@ function NilaiTab({ studentId, semesterId }: TabProps) {
             </div>
 
             {grades.status === 'loading' ? (
-                <ListSkeleton />
+                <SubjectListSkeleton />
             ) : grades.status === 'error' ? (
-                <TabMessage>Nilai belum dapat dimuat. Coba lagi nanti.</TabMessage>
+                <LoadErrorState title="Nilai belum dapat dimuat" onRetry={grades.reload} />
             ) : entries.length === 0 ? (
-                <TabMessage>Belum ada nilai pada semester ini.</TabMessage>
+                <EmptyState icon={BookOpen} tone="violet" title="Belum ada nilai" description="Nilai semester ini akan muncul setelah guru mapel menginput penilaian." />
             ) : mode === 'mapel' ? (
                 <div className="flex flex-col gap-2.5">
                     {subjectGroups.map((group) => (
@@ -214,11 +282,11 @@ function MapelTab({ studentId, semesterId }: TabProps) {
 
     if (!subjects.data) {
         return subjects.status === 'error'
-            ? <TabMessage>Daftar mapel belum dapat dimuat. Coba lagi nanti.</TabMessage>
-            : <ListSkeleton count={2} className="h-[150px] rounded-[22px]" />
+            ? <LoadErrorState title="Daftar mapel belum dapat dimuat" onRetry={subjects.reload} />
+            : <MapelSkeleton />
     }
     if (subjects.data.length === 0) {
-        return <TabMessage>Belum ada mata pelajaran pada semester ini.</TabMessage>
+        return <EmptyState icon={Library} tone="mint" title="Belum ada mata pelajaran" description="Mata pelajaran semester ini belum ditetapkan oleh sekolah." />
     }
 
     const totalHours = subjects.data.reduce((sum, subject) => sum + subject.hoursPerWeek, 0)
@@ -279,11 +347,11 @@ function ClassmatesSheet({ studentId, semesterId, studentCount }: TabProps & { s
                             <span className="text-[15px] font-bold">{classmate.name}</span>
                         </div>
                     )) : classmates.status === 'error' ? (
-                        <p className="py-4 text-center text-sm text-subtle">Daftar siswa belum dapat dimuat.</p>
+                        <LoadErrorState layout="inline" title="Daftar siswa belum dapat dimuat" onRetry={classmates.reload} className="-mx-4 my-1" />
                     ) : (
-                        [0, 1, 2, 3, 4].map((item) => (
-                            <div key={item} className="flex items-center gap-3 py-2.5">
-                                <Skeleton className="size-10 rounded-full" />
+                        repeat(5, (index) => (
+                            <div key={index} className="flex items-center gap-3 border-b border-muted py-2.5 last:border-b-0">
+                                <Skeleton className="size-10 shrink-0 rounded-full" />
                                 <Skeleton className="h-4 w-40" />
                             </div>
                         ))
@@ -355,9 +423,11 @@ function WeekScheduleSection({ studentId }: { studentId: string }) {
         <>
             <h2 className="mt-1 font-display text-[19px] font-semibold">Jadwal Pelajaran</h2>
             {schedule.status === 'loading' ? (
-                <ListSkeleton count={2} className="h-16 rounded-[18px]" />
+                <ScheduleSkeleton />
             ) : !activeDay ? (
-                <TabMessage>{schedule.status === 'error' ? 'Jadwal belum dapat dimuat. Coba lagi nanti.' : 'Belum ada jadwal minggu ini.'}</TabMessage>
+                schedule.status === 'error'
+                    ? <LoadErrorState title="Jadwal belum dapat dimuat" onRetry={schedule.reload} />
+                    : <EmptyState icon={CalendarDays} tone="sky" title="Belum ada jadwal minggu ini" description="Jadwal pelajaran akan tampil setelah disusun oleh sekolah." />
             ) : (
                 <>
                     <div className="flex gap-2">
@@ -379,7 +449,9 @@ function WeekScheduleSection({ studentId }: { studentId: string }) {
                     </div>
 
                     {!activeDay.isSchoolDay || activeDay.lessons.length === 0 ? (
-                        <TabMessage>{activeDay.holidayName ?? 'Tidak ada pelajaran pada hari ini.'}</TabMessage>
+                        activeDay.holidayName
+                            ? <EmptyState layout="inline" icon={PartyPopper} tone="coral" title={activeDay.holidayName} description="Hari libur, tidak ada pelajaran." />
+                            : <EmptyState layout="inline" icon={Sun} tone="sun" title="Tidak ada pelajaran" description="Hari ini bebas dari jadwal kelas." />
                     ) : (
                         <div className="rounded-3xl bg-card px-4 py-1.5">
                             {activeDay.lessons.map((lesson, index) => (
@@ -408,9 +480,9 @@ function KelasTab({ studentId, semesterId }: TabProps) {
             {classroom.data ? (
                 <ClassroomCard classroom={classroom.data} />
             ) : classroom.status === 'error' ? (
-                <TabMessage>Data kelas belum dapat dimuat. Coba lagi nanti.</TabMessage>
+                <LoadErrorState title="Data kelas belum dapat dimuat" onRetry={classroom.reload} />
             ) : (
-                <Skeleton className="h-[180px] rounded-3xl" />
+                <ClassroomSkeleton />
             )}
             <WeekScheduleSection studentId={studentId} />
             {classroom.data ? <ClassmatesSection classroom={classroom.data} studentId={studentId} semesterId={semesterId} /> : null}
@@ -532,8 +604,12 @@ export default function Akademik() {
                     {tab === 'mapel' ? <MapelTab studentId={studentId} semesterId={semesterId} /> : null}
                     {tab === 'kelas' ? <KelasTab studentId={studentId} semesterId={semesterId} /> : null}
                 </>
+            ) : tab === 'mapel' ? (
+                <MapelSkeleton />
+            ) : tab === 'kelas' ? (
+                <ClassroomSkeleton />
             ) : (
-                <ListSkeleton />
+                <SubjectListSkeleton />
             )}
         </div>
     )

@@ -9,6 +9,7 @@ import { ChildAvatar } from '@/components/dashboard/child-avatar'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '@/contexts/AuthContext'
 import { useStudent } from '@/contexts/StudentContext'
+import { useApiData } from '@/hooks/use-api-data'
 import { useHasLinkedStudent } from '@/hooks/use-has-linked-student'
 import { formatDate, parseIsoDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
@@ -64,7 +65,6 @@ function buildPersonalInfo(profile: StudentProfile) {
     ]
 }
 
-type ProfileState = { studentId: string, status: 'loading' | 'error' } | { studentId: string, status: 'ready', profile: StudentProfile }
 
 export default function Profil() {
     const { user, logout } = useAuth()
@@ -72,7 +72,6 @@ export default function Profil() {
     const { activeStudent, linkedStudents } = useStudent()
     const student = hasLinkedStudent ? activeStudent : null
     const studentIndex = student ? linkedStudents.findIndex((item) => item.id === student.id) : 0
-    const [profileState, setProfileState] = useState<ProfileState | null>(null)
     const accountName = user?.name ?? ''
     const accountInitials = user?.avatarInitials ?? ''
     const accountAvatarUrl = user?.avatarUrl ?? null
@@ -101,35 +100,8 @@ export default function Profil() {
         }
     }, [])
 
-    useEffect(() => {
-        if (!student) {
-            return
-        }
-
-        let cancelled = false
-        const studentId = student.id
-        setProfileState({ studentId, status: 'loading' })
-
-        academicService.getStudentProfile(studentId)
-            .then((profile) => {
-                if (!cancelled) {
-                    setProfileState({ studentId, status: 'ready', profile })
-                }
-            })
-            .catch(() => {
-                if (!cancelled) {
-                    setProfileState({ studentId, status: 'error' })
-                }
-            })
-
-        return () => {
-            cancelled = true
-        }
-    }, [student])
-
-    // Abaikan hasil milik anak sebelumnya saat anak aktif baru saja diganti.
-    const currentProfile = profileState && student && profileState.studentId === student.id ? profileState : null
-    const profile = currentProfile?.status === 'ready' ? currentProfile.profile : null
+    const profileData = useApiData(student ? () => academicService.getStudentProfile(student.id) : null, [student?.id])
+    const profile = profileData.data
     const isStudentActive = profile?.statusActive ?? student?.statusActive ?? true
 
     // Optimistic: sakelar langsung berubah, dikembalikan bila PATCH gagal.
@@ -186,13 +158,13 @@ export default function Profil() {
 
                     <section aria-labelledby="data-h" className="mx-5 mt-[22px]">
                         <h3 id="data-h" className="mb-2.5 ml-1 font-display text-lg font-semibold">Data Pribadi</h3>
-                        <div className="rounded-3xl bg-card px-4 py-1" aria-busy={currentProfile?.status === 'loading'}>
+                        <div className="rounded-3xl bg-card px-4 py-1" aria-busy={profileData.status === 'loading'}>
                             {profile ? buildPersonalInfo(profile).map((item) => (
                                 <div key={item.label} className="flex items-center gap-3 border-b border-muted py-3 last:border-b-0">
                                     <span className="w-[120px] shrink-0 text-[13px] font-bold text-subtle">{item.label}</span>
                                     <span className="min-w-0 flex-grow break-words text-right text-sm font-bold">{item.value}</span>
                                 </div>
-                            )) : currentProfile?.status === 'error' ? (
+                            )) : profileData.status === 'error' ? (
                                 <p className="py-4 text-center text-sm text-subtle">Data pribadi belum dapat dimuat. Coba lagi nanti.</p>
                             ) : (
                                 [0, 1, 2, 3, 4].map((item) => (

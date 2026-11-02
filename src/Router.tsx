@@ -1,6 +1,7 @@
 import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom'
 import { AppLayout } from './components/app-layout'
 import { ProtectedRoute } from './components/protected-route'
+import { AppSplash } from './components/shared/app-splash'
 import { features } from './config/app'
 import { useAuth } from './contexts/AuthContext'
 import { useHasLinkedStudent } from './hooks/use-has-linked-student'
@@ -38,7 +39,7 @@ function PublicRoute({ page }: { page: 'login' | 'onboarding' }) {
     const location = useLocation()
 
     if (!isReady) {
-        return null
+        return <AppSplash />
     }
 
     if (user) {

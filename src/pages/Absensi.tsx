@@ -1,15 +1,17 @@
-import { ReactNode, useState } from 'react'
-import { CalendarX2, ChevronLeft, ChevronRight, FilePlus2 } from 'lucide-react'
+import { useState } from 'react'
+import { CalendarCheck, CalendarX2, ChevronLeft, ChevronRight, FileCheck2, FilePlus2, Plus, RotateCw } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 import { HeroCard } from '@/components/kit/hero-card'
 import { ScreenHeader } from '@/components/kit/screen-header'
+import { EmptyState, LoadErrorState } from '@/components/shared/empty-state'
+import { LoadingRegion, RowSkeleton } from '@/components/shared/skeletons'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useStudent } from '@/contexts/StudentContext'
 import { useApiData } from '@/hooks/use-api-data'
 import { dayNames, formatClock, formatDateRange, formatLongDate, monthNames, parseIsoDate } from '@/lib/format'
-import { cn } from '@/lib/utils'
+import { cn, repeat } from '@/lib/utils'
 import { academicService } from '@/services'
 import { AttendanceRecord, AttendanceStatus, LeaveRequest, LeaveStatus } from '@/types/academic'
 
@@ -26,10 +28,6 @@ const statusStyles: Record<DayStatus, { tile: string, value: string, label: stri
 }
 
 const weekdayLabels = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min']
-
-function SectionMessage({ children }: { children: ReactNode }) {
-    return <p className="rounded-[20px] bg-card p-4 text-sm text-subtle">{children}</p>
-}
 
 function MonthCalendar({ studentId }: { studentId: string }) {
     const [month, setMonth] = useState(() => {
@@ -79,7 +77,15 @@ function MonthCalendar({ studentId }: { studentId: string }) {
                     )
                 })}
             </div>
-            {calendar.status === 'error' ? <p className="mt-2 text-center text-[13px] text-subtle">Kalender belum dapat dimuat.</p> : null}
+            {calendar.status === 'error' ? (
+                <div className="mt-3 flex items-center justify-between gap-3 rounded-2xl bg-pastel-coral py-2 pl-3.5 pr-2 text-[13px] font-bold text-[#7A2E29]">
+                    Kalender belum dapat dimuat.
+                    <button type="button" onClick={calendar.reload} className="flex h-9 items-center gap-1.5 rounded-full bg-card px-3 text-xs font-extrabold text-primary">
+                        <RotateCw className="size-3.5" strokeWidth={2.6} />
+                        Coba lagi
+                    </button>
+                </div>
+            ) : null}
             <div className="mt-3.5 flex flex-wrap gap-3 text-xs font-bold text-[#44544A]">
                 {statusOrder.map((status) => (
                     <span key={status} className="flex items-center gap-1.5">
@@ -123,11 +129,24 @@ function LeaveRequests({ studentId }: { studentId: string }) {
         <section aria-labelledby="izin-h" className="flex flex-col gap-2.5">
             <h2 id="izin-h" className="font-display text-[19px] font-semibold">Pengajuan Izin</h2>
             {leaveRequests.status === 'loading' ? (
-                <Skeleton className="h-[92px] rounded-[20px]" />
+                <LoadingRegion label="Memuat pengajuan izin">
+                    <RowSkeleton tile={null} lines={['h-4 w-44', 'h-3 w-32']} trailing="badge" className="items-start" />
+                </LoadingRegion>
             ) : leaveRequests.status === 'error' ? (
-                <SectionMessage>Pengajuan izin belum dapat dimuat.</SectionMessage>
+                <LoadErrorState layout="inline" title="Pengajuan izin belum dapat dimuat" onRetry={leaveRequests.reload} />
             ) : requests.length === 0 ? (
-                <SectionMessage>Belum ada pengajuan izin.</SectionMessage>
+                <EmptyState
+                    layout="inline"
+                    icon={FileCheck2}
+                    tone="sun"
+                    title="Belum ada pengajuan izin"
+                    description="Anak sakit atau ada keperluan? Ajukan izin dari sini."
+                    action={(
+                        <Link to="/absensi/izin" aria-label="Ajukan izin" className="flex size-11 shrink-0 items-center justify-center rounded-full bg-primary text-white">
+                            <Plus className="size-5" strokeWidth={2.6} />
+                        </Link>
+                    )}
+                />
             ) : requests.map((request) => (
                 <div key={request.id} className="flex flex-col gap-2 rounded-[20px] bg-card p-3.5">
                     <div className="flex items-start justify-between gap-3">
@@ -191,11 +210,13 @@ function AttendanceHistory({ studentId }: { studentId: string }) {
         <section aria-labelledby="hist-h" className="flex flex-col gap-2.5">
             <h2 id="hist-h" className="font-display text-[19px] font-semibold">Riwayat Terbaru</h2>
             {history.status === 'loading' ? (
-                <Skeleton className="h-[74px] rounded-[20px]" />
+                <LoadingRegion label="Memuat riwayat absensi">
+                    {repeat(3, (index) => <RowSkeleton key={index} tile="size-[46px] rounded-[14px]" lines={['h-4 w-28', 'h-3 w-40']} trailing="badge" />)}
+                </LoadingRegion>
             ) : history.status === 'error' ? (
-                <SectionMessage>Riwayat absensi belum dapat dimuat.</SectionMessage>
+                <LoadErrorState layout="inline" title="Riwayat absensi belum dapat dimuat" onRetry={history.reload} />
             ) : history.data?.items.length === 0 ? (
-                <SectionMessage>Belum ada catatan absensi.</SectionMessage>
+                <EmptyState layout="inline" icon={CalendarCheck} tone="sky" title="Belum ada catatan absensi" description="Kehadiran yang dicatat guru akan muncul di sini." />
             ) : history.data?.items.map((item) => {
                 const date = parseIsoDate(item.date)
                 const styles = statusStyles[item.status]
@@ -221,9 +242,7 @@ function TodayCard({ studentId, nickname }: { studentId: string, nickname: strin
     const attendance = useApiData(() => academicService.getAttendanceToday(studentId), [studentId])
     const today = attendance.data
 
-    const headline = attendance.status === 'loading'
-        ? 'Memuat absensi…'
-        : attendance.status === 'error'
+    const headline = attendance.status === 'error'
             ? 'Absensi hari ini belum dapat dimuat'
             : today?.status
                 ? `${nickname} ${statusLabels[today.status].toLowerCase()} hari ini`
@@ -232,8 +251,10 @@ function TodayCard({ studentId, nickname }: { studentId: string, nickname: strin
     return (
         <HeroCard tone="ink">
             <p className="text-[13px] font-bold text-[#C8D8CD]">{formatLongDate(today ? parseIsoDate(today.date) : new Date())}</p>
-            <div className="mt-1.5 flex items-center gap-2.5">
-                <p className="font-display text-[22px] font-semibold">{headline}</p>
+            <div aria-busy={attendance.status === 'loading'} className="mt-1.5 flex min-h-[33px] items-center gap-2.5">
+                {attendance.status === 'loading'
+                    ? <Skeleton tone="inverse" className="h-6 w-56" />
+                    : <p className="font-display text-[22px] font-semibold">{headline}</p>}
                 {today?.punctuality ? (
                     <span className={cn('shrink-0 rounded-full px-2.5 py-1 text-xs font-extrabold', today.punctuality === 'terlambat' ? 'bg-pastel-sun text-[#6B4A00]' : 'bg-pastel-mint text-pastel-mint-fg')}>
                         {today.punctuality === 'terlambat' ? 'Terlambat' : 'Tepat waktu'}
@@ -262,7 +283,9 @@ function SemesterRecap({ studentId }: { studentId: string }) {
         <section aria-label="Rekap semester" aria-busy={summary.status === 'loading'} className="grid grid-cols-4 gap-2">
             {statusOrder.map((status) => (
                 <div key={status} className={cn('rounded-[18px] px-1 py-3 text-center', statusStyles[status].tile)}>
-                    <p className={cn('font-display text-[22px] font-bold', statusStyles[status].value)}>{summary.data ? summary.data[status] : '–'}</p>
+                    {summary.status === 'loading'
+                        ? <Skeleton tone="pastel" className="mx-auto my-[5px] h-[23px] w-7 rounded-lg" />
+                        : <p className={cn('font-display text-[22px] font-bold', statusStyles[status].value)}>{summary.data ? summary.data[status] : '–'}</p>}
                     <p className={cn('text-xs font-extrabold', statusStyles[status].label)}>{statusLabels[status]}</p>
                 </div>
             ))}
@@ -301,7 +324,29 @@ export default function Absensi() {
                     <AttendanceHistory studentId={activeStudent.id} />
                 </div>
             ) : (
-                <Skeleton className="h-[200px] rounded-[28px]" />
+                <LoadingRegion label="Memuat absensi" className="gap-[18px]">
+                    <HeroCard tone="ink">
+                        <Skeleton tone="inverse" className="h-3 w-36" />
+                        <Skeleton tone="inverse" className="mt-3 h-6 w-56" />
+                        <div className="mt-4 grid grid-cols-2 gap-2.5">
+                            {repeat(2, (index) => (
+                                <div key={index} className="flex flex-col gap-2.5 rounded-2xl bg-white/10 p-3">
+                                    <Skeleton tone="inverse" className="h-3 w-16" />
+                                    <Skeleton tone="inverse" className="h-5 w-14" />
+                                </div>
+                            ))}
+                        </div>
+                        <Skeleton tone="inverse" className="mt-3.5 h-3 w-48" />
+                    </HeroCard>
+                    <div className="grid grid-cols-4 gap-2">
+                        {statusOrder.map((status) => (
+                            <div key={status} className={cn('flex flex-col items-center gap-2 rounded-[18px] px-1 py-3', statusStyles[status].tile)}>
+                                <Skeleton tone="pastel" className="my-[5px] h-[23px] w-7 rounded-lg" />
+                                <Skeleton tone="pastel" className="h-2.5 w-10" />
+                            </div>
+                        ))}
+                    </div>
+                </LoadingRegion>
             )}
         </div>
     )

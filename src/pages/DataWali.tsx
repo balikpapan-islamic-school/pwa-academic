@@ -1,5 +1,8 @@
-import { Mail, Phone, UserRound } from 'lucide-react'
+import { Mail, Phone, UserRound, UsersRound } from 'lucide-react'
 import { FocusPage } from '@/components/kit/focus-page'
+import { EmptyState, LoadErrorState } from '@/components/shared/empty-state'
+import { LoadingRegion } from '@/components/shared/skeletons'
+import { repeat } from '@/lib/utils'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useStudent } from '@/contexts/StudentContext'
 import { useApiData } from '@/hooks/use-api-data'
@@ -50,11 +53,32 @@ export default function DataWali() {
                         </dl>
                     </section>
                 )) : (
-                    <p className="rounded-3xl bg-card p-4 text-center text-sm text-subtle shadow-soft">Belum ada data orang tua / wali.</p>
+                    <EmptyState icon={UsersRound} tone="violet" title="Belum ada data orang tua / wali" description="Hubungi Tata Usaha sekolah untuk melengkapi data." className="shadow-soft" />
                 ) : guardians.status === 'error' ? (
-                    <p className="rounded-3xl bg-card p-4 text-center text-sm text-subtle shadow-soft">Data orang tua / wali belum dapat dimuat. Coba lagi nanti.</p>
+                    <LoadErrorState title="Data orang tua / wali belum dapat dimuat" onRetry={guardians.reload} className="shadow-soft" />
                 ) : (
-                    [0, 1].map((item) => <Skeleton key={item} className="h-[150px] rounded-3xl" />)
+                    <LoadingRegion label="Memuat data orang tua / wali" className="gap-3">
+                        {repeat(2, (index) => (
+                            <div key={index} className="rounded-3xl bg-card p-4 shadow-soft">
+                                <div className="flex items-center gap-3">
+                                    <Skeleton className="size-11 shrink-0 rounded-full" />
+                                    <div className="flex flex-grow flex-col gap-2.5">
+                                        <Skeleton className="h-2.5 w-12" />
+                                        <Skeleton className="h-4 w-36" />
+                                    </div>
+                                    <Skeleton className="h-6 w-[90px] shrink-0 rounded-full" />
+                                </div>
+                                <div className="mt-3 rounded-2xl bg-[#F1F6F1] px-3.5 py-1">
+                                    {repeat(2, (row) => (
+                                        <div key={row} className="flex items-center justify-between gap-3 border-b border-[#DDE6DE] py-3.5 last:border-b-0">
+                                            <Skeleton className="h-3 w-16 bg-border" />
+                                            <Skeleton className="h-3.5 w-32 bg-border" />
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
+                    </LoadingRegion>
                 )}
                 <p className="mt-1 text-center text-xs text-subtle">Perubahan data dilakukan melalui Tata Usaha sekolah.</p>
             </div>

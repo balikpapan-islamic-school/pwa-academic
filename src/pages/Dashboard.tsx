@@ -1,5 +1,5 @@
 import { ReactNode, useEffect, useState } from 'react'
-import { AlertTriangle, ArrowRight, BookOpen, CalendarCheck, Clock3, Link2, UserRoundPlus, Wallet } from 'lucide-react'
+import { AlertTriangle, ArrowRight, BookOpen, CalendarCheck, CircleCheckBig, Clock3, Link2, Sun, UserRoundPlus, Wallet } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { BisLogo } from '@/components/bis-logo'
 import { features, spmb } from '@/config/app'
@@ -9,8 +9,11 @@ import { SchoolNews } from '@/components/dashboard/school-news'
 import { ChildRequestCard } from '@/components/hubungkan/child-request-card'
 import { CompactTopBar } from '@/components/kit/compact-top-bar'
 import { InstallAppCard } from '@/components/pwa/install-app'
+import { EmptyState, LoadErrorState } from '@/components/shared/empty-state'
+import { LoadingRegion } from '@/components/shared/skeletons'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '@/contexts/AuthContext'
+import { useRefreshSignal } from '@/contexts/RefreshContext'
 import { useStudent } from '@/contexts/StudentContext'
 import { useHasLinkedStudent } from '@/hooks/use-has-linked-student'
 import { hasPendingChildRequest } from '@/lib/child-requests'
@@ -51,20 +54,51 @@ function ModuleCard({ to, label, meta, icon, className, iconClassName, metaClass
     )
 }
 
-function StudentDashboardSkeleton() {
+const moduleSkeletonTones = features.payments
+    ? ['bg-pastel-violet', 'bg-pastel-sky', 'bg-pastel-coral', 'bg-pastel-sun']
+    : ['bg-pastel-violet', 'bg-pastel-sky', 'col-span-2 min-h-[120px] bg-pastel-sun']
+
+function TodayScheduleSkeleton() {
     return (
-        <div aria-busy="true" aria-label="Memuat Beranda" className="flex flex-col gap-5">
-            <div className="flex items-center gap-3">
-                <Skeleton className="size-[52px] rounded-full" />
-                <div className="flex flex-grow flex-col gap-2">
-                    <Skeleton className="h-6 w-40" />
-                    <Skeleton className="h-4 w-52" />
+        <LoadingRegion label="Memuat jadwal hari ini">
+            <div className="flex items-center gap-3.5 rounded-3xl bg-card p-3.5 shadow-soft">
+                <Skeleton className="size-[72px] shrink-0 rounded-[18px]" />
+                <div className="flex flex-grow flex-col gap-2.5">
+                    <Skeleton className="h-3 w-24" />
+                    <Skeleton className="h-4 w-36" />
+                    <Skeleton className="h-3 w-28" />
                 </div>
             </div>
-            <div className="grid grid-cols-2 gap-3.5">
-                {[0, 1, 2, 3].map((item) => <Skeleton key={item} className="h-[140px] rounded-3xl" />)}
+        </LoadingRegion>
+    )
+}
+
+// Kerangka Beranda saat daftar anak dimuat; ubin modul tetap berwarna pastel seperti aslinya.
+function StudentDashboardSkeleton() {
+    return (
+        <LoadingRegion label="Memuat Beranda" className="gap-[22px]">
+            <div className="flex items-center gap-3">
+                <Skeleton className="size-[52px] shrink-0 rounded-full border-[3px] border-white shadow-[0_4px_12px_rgba(0,0,0,0.10)]" />
+                <div className="flex flex-grow flex-col gap-2.5">
+                    <Skeleton className="h-6 w-40" />
+                    <Skeleton className="h-3.5 w-52" />
+                </div>
+                <span aria-hidden="true" className="size-12 shrink-0 rounded-full bg-card shadow-chip" />
             </div>
-        </div>
+            <div className="grid grid-cols-2 gap-3.5">
+                {moduleSkeletonTones.map((tone) => (
+                    <div key={tone} className={cn('flex min-h-[140px] flex-col rounded-3xl p-4', tone)}>
+                        <Skeleton tone="pastel" className="size-[46px] rounded-[14px]" />
+                        <Skeleton tone="pastel" className="mt-auto h-5 w-20" />
+                        <Skeleton tone="pastel" className="mt-2 h-3 w-24" />
+                    </div>
+                ))}
+            </div>
+            <div className="flex flex-col gap-3">
+                <h2 className="flex min-h-11 items-center font-display text-xl font-semibold">Jadwal Hari Ini</h2>
+                <TodayScheduleSkeleton />
+            </div>
+        </LoadingRegion>
     )
 }
 
@@ -84,10 +118,10 @@ function TodaySchedule({ lessons, isSchoolDay }: { lessons: Lesson[], isSchoolDa
     const nextLessons = (current ? upcoming : upcoming.slice(1)).slice(0, 3)
 
     if (!isSchoolDay || lessons.length === 0) {
-        return <p className="rounded-3xl bg-card p-4 text-sm text-subtle shadow-soft">Tidak ada pelajaran hari ini.</p>
+        return <EmptyState layout="inline" icon={Sun} tone="sun" title="Tidak ada pelajaran hari ini" description="Waktunya istirahat dan berkumpul bersama keluarga." className="shadow-soft" />
     }
     if (!highlighted) {
-        return <p className="rounded-3xl bg-card p-4 text-sm text-subtle shadow-soft">Pelajaran hari ini sudah selesai.</p>
+        return <EmptyState layout="inline" icon={CircleCheckBig} tone="mint" title="Pelajaran hari ini selesai" description="Sampai jumpa besok di sekolah." className="shadow-soft" />
     }
 
     const progress = current
@@ -172,9 +206,9 @@ function StudentDashboard({ child }: { child: StudentSummary }) {
                 {summary ? (
                     <TodaySchedule lessons={summary.today.lessons} isSchoolDay={summary.today.isSchoolDay} />
                 ) : dashboard.status === 'error' ? (
-                    <p className="rounded-3xl bg-card p-4 text-sm text-subtle shadow-soft">Jadwal hari ini belum dapat dimuat.</p>
+                    <LoadErrorState layout="inline" title="Jadwal belum dapat dimuat" onRetry={dashboard.reload} className="shadow-soft" />
                 ) : (
-                    <Skeleton className="h-[100px] rounded-3xl" />
+                    <TodayScheduleSkeleton />
                 )}
             </section>
 
@@ -203,11 +237,12 @@ function EmptyDashboard() {
     const [requests, setRequests] = useState<ChildLinkRequest[]>([])
     const openRequests = requests.filter((request) => request.status !== 'APPROVED')
     const isLocked = hasPendingChildRequest(requests)
+    const { refreshKey, track } = useRefreshSignal()
 
     useEffect(() => {
         let cancelled = false
 
-        academicService.getChildRequests()
+        track(academicService.getChildRequests()
             .then((result) => {
                 if (cancelled) {
                     return
@@ -220,14 +255,14 @@ function EmptyDashboard() {
             })
             .catch(() => {
                 // Status pengajuan bersifat tambahan; Beranda tetap bisa dipakai tanpa daftar ini.
-            })
+            }))
 
         return () => {
             cancelled = true
         }
-        // Cukup sekali saat Beranda dibuka; refreshUser mengganti `user` dan tidak boleh memicu ulang.
+        // Saat Beranda dibuka dan saat layar ditarik; refreshUser mengganti `user` dan tidak boleh memicu ulang.
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [])
+    }, [refreshKey])
 
     return (
         <>

@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { Newspaper } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { EmptyState, LoadErrorState } from '@/components/shared/empty-state'
+import { LoadingRegion, RowSkeleton } from '@/components/shared/skeletons'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useApiData } from '@/hooks/use-api-data'
 import { formatDate, parseIsoDateTime } from '@/lib/format'
-import { cn } from '@/lib/utils'
+import { cn, repeat } from '@/lib/utils'
 import { academicService } from '@/services'
 import { newsCategoryLabels, newsCategoryTones } from '@/lib/news'
 import { NewsArticle, NewsCategory } from '@/types/academic'
@@ -98,14 +100,23 @@ export function SchoolNews() {
             {news.data && news.data.items.length > 0 ? (
                 <NewsList items={news.data.items} />
             ) : news.data ? (
-                <p className="rounded-3xl bg-card p-4 text-sm text-subtle">Belum ada berita.</p>
+                <EmptyState icon={Newspaper} tone="sky" title="Belum ada berita" description={category ? `Belum ada berita ${newsCategoryLabels[category].toLowerCase()} untuk saat ini.` : 'Kabar terbaru dari sekolah akan tampil di sini.'} />
             ) : news.status === 'error' ? (
-                <p className="rounded-3xl bg-card p-4 text-sm text-subtle">Berita belum dapat dimuat.</p>
+                <LoadErrorState layout="inline" title="Berita belum dapat dimuat" onRetry={news.reload} />
             ) : (
-                <div aria-busy="true" aria-label="Memuat berita" className="flex flex-col gap-3">
-                    <Skeleton className="h-[220px] rounded-3xl" />
-                    <Skeleton className="h-24 rounded-[20px]" />
-                </div>
+                <LoadingRegion label="Memuat berita" className="gap-3">
+                    <div className="flex flex-col overflow-hidden rounded-3xl bg-card shadow-soft">
+                        <Skeleton className="h-[150px] rounded-none" />
+                        <div className="flex flex-col gap-2.5 px-4 pb-4 pt-3.5">
+                            <Skeleton className="h-4 w-4/5" />
+                            <Skeleton className="h-4 w-1/2" />
+                            <Skeleton className="h-3 w-32" />
+                        </div>
+                    </div>
+                    {repeat(2, (index) => (
+                        <RowSkeleton key={index} tile="size-[72px] rounded-2xl" lines={['h-2.5 w-20', 'h-4 w-48', 'h-3 w-28']} className="p-3" />
+                    ))}
+                </LoadingRegion>
             )}
         </section>
     )

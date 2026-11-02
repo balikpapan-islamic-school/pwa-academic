@@ -1,5 +1,6 @@
 import { createContext, ReactNode, use, useEffect, useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
+import { useRefreshSignal } from '@/contexts/RefreshContext'
 import { academicService } from '@/services'
 import { NotificationItem } from '@/types/academic'
 
@@ -23,8 +24,10 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     const [isLoading, setIsLoading] = useState(false)
     const [hasError, setHasError] = useState(false)
     const [reloadKey, setReloadKey] = useState(0)
+    const { refreshKey, track, consumeRefresh } = useRefreshSignal()
 
     useEffect(() => {
+        const isRefresh = consumeRefresh()
         let cancelled = false
 
         if (!user) {
@@ -33,28 +36,32 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
             return
         }
 
-        setIsLoading(true)
-        setHasError(false)
+        if (!isRefresh) {
+            setIsLoading(true)
+            setHasError(false)
+        }
 
-        academicService.getNotifications().then((result) => {
+        track(academicService.getNotifications().then((result) => {
             if (cancelled) {
                 return
             }
 
             setNotifications(result.items)
             setUnreadCount(result.unreadCount)
+            setHasError(false)
             setIsLoading(false)
         }).catch(() => {
             if (!cancelled) {
                 setHasError(true)
                 setIsLoading(false)
             }
-        })
+        }))
 
         return () => {
             cancelled = true
         }
-    }, [user, reloadKey])
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [user, reloadKey, refreshKey])
 
     function markAsRead(notificationId: string) {
         const target = notifications.find((notification) => notification.id === notificationId)

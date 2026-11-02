@@ -1,5 +1,6 @@
 import { createContext, ReactNode, use, useEffect, useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
+import { useRefreshSignal } from '@/contexts/RefreshContext'
 import { academicService } from '@/services'
 import { StudentSummary } from '@/types/academic'
 
@@ -20,8 +21,10 @@ export function StudentProvider({ children }: { children: ReactNode }) {
     const [linkedStudents, setLinkedStudents] = useState<StudentSummary[]>([])
     // Mulai true agar halaman tidak sempat menganggap "belum ada peserta didik" sebelum data dimuat.
     const [isLoading, setIsLoading] = useState(true)
+    const { refreshKey, track, consumeRefresh } = useRefreshSignal()
 
     useEffect(() => {
+        const isRefresh = consumeRefresh()
         let cancelled = false
 
         if (!user) {
@@ -31,7 +34,9 @@ export function StudentProvider({ children }: { children: ReactNode }) {
             return
         }
 
-        setIsLoading(true)
+        if (!isRefresh) {
+            setIsLoading(true)
+        }
 
         if (user.role === 'siswa') {
             const nextStudent = {
@@ -55,7 +60,7 @@ export function StudentProvider({ children }: { children: ReactNode }) {
             }
         }
 
-        academicService.getLinkedStudents(user.id).then((students) => {
+        track(academicService.getLinkedStudents(user.id).then((students) => {
             if (cancelled) {
                 return
             }
@@ -76,12 +81,13 @@ export function StudentProvider({ children }: { children: ReactNode }) {
                 setActiveStudent(null)
                 setIsLoading(false)
             }
-        })
+        }))
 
         return () => {
             cancelled = true
         }
-    }, [user])
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [user, refreshKey])
 
     function setActiveStudentId(studentId: string) {
         const nextStudent = linkedStudents.find((student) => student.id === studentId)

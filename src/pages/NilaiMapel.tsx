@@ -1,14 +1,17 @@
 import { useState } from 'react'
+import { ClipboardList } from 'lucide-react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { EntryDetail, EntryResult, GradeFileViewer, NewBadge } from '@/components/akademik/grade-entry'
 import { FocusPage } from '@/components/kit/focus-page'
+import { EmptyState, LoadErrorState } from '@/components/shared/empty-state'
+import { LoadingRegion } from '@/components/shared/skeletons'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useStudent } from '@/contexts/StudentContext'
 import { useApiData } from '@/hooks/use-api-data'
 import { useGoBack } from '@/hooks/use-go-back'
 import { formatDate, monthNames, parseIsoDateTime } from '@/lib/format'
 import { byNewest, countLabel, isNewGrade, subjectTone } from '@/lib/grades'
-import { cn } from '@/lib/utils'
+import { cn, repeat } from '@/lib/utils'
 import { academicService } from '@/services'
 import { FileGradeEntry, GradeEntry } from '@/types/academic'
 
@@ -76,16 +79,24 @@ export default function NilaiMapel() {
             ) : undefined}>
             <div className="relative -mt-9 flex flex-col gap-4 px-5">
                 {data.status === 'loading' ? (
-                    <div aria-busy="true" aria-label="Memuat nilai" className="flex flex-col gap-2.5">
-                        {[0, 1, 2].map((item) => <Skeleton key={item} className="h-[96px] rounded-[20px]" />)}
-                    </div>
+                    <LoadingRegion label="Memuat nilai">
+                        <Skeleton tone="inverse" className="my-1 ml-1 h-3 w-28" />
+                        {repeat(3, (index) => (
+                            <div key={index} className="flex gap-3 rounded-[20px] bg-card p-3.5 shadow-soft">
+                                <Skeleton className="w-1.5 shrink-0 self-stretch rounded-full" />
+                                <div className="flex flex-grow flex-col gap-2.5">
+                                    <Skeleton className="h-4 w-36" />
+                                    <Skeleton className="h-3 w-24" />
+                                    <Skeleton className="h-3 w-48" />
+                                </div>
+                                <Skeleton className="h-6 w-9 self-center rounded-lg" />
+                            </div>
+                        ))}
+                    </LoadingRegion>
                 ) : data.status === 'error' ? (
-                    <div className="flex flex-col items-center gap-3 rounded-[20px] bg-card p-4 shadow-soft">
-                        <p className="text-center text-sm text-subtle">Nilai belum dapat dimuat. Periksa koneksi internet, lalu coba lagi.</p>
-                        <button type="button" onClick={data.reload} className="h-11 rounded-full border-2 border-border px-5 text-sm font-extrabold text-primary">Coba lagi</button>
-                    </div>
+                    <LoadErrorState title="Nilai belum dapat dimuat" onRetry={data.reload} className="shadow-soft" />
                 ) : entries.length === 0 ? (
-                    <p className="rounded-[20px] bg-card p-4 text-center text-sm text-subtle shadow-soft">Belum ada nilai untuk mapel ini pada semester ini.</p>
+                    <EmptyState icon={ClipboardList} tone="violet" title="Belum ada nilai" description="Nilai mapel ini akan muncul setelah guru menginput penilaian semester ini." className="shadow-soft" />
                 ) : groupByMonth(entries).map((group, groupIndex) => (
                     <section key={group.label} aria-label={group.label} className="flex flex-col gap-2.5">
                         <h2 className={cn('ml-1 text-[13px] font-extrabold uppercase tracking-[0.4px]', groupIndex === 0 ? 'text-brand-soft' : 'text-subtle')}>{group.label}</h2>

@@ -19,6 +19,9 @@ const allowedTags: Record<string, string> = {
     a: 'font-bold text-primary underline underline-offset-2',
 }
 
+// Blok tanpa teks (mis. `<p></p>` dari editor admin saat konten dikosongkan) tidak ditampilkan.
+const blockTags = new Set(['p', 'h2', 'h3', 'h4', 'ul', 'ol', 'li', 'blockquote'])
+
 const droppedTags = new Set(['script', 'style', 'iframe', 'object', 'embed', 'form', 'input', 'button', 'svg', 'math', 'template'])
 
 function safeHref(href: string | null) {
@@ -49,6 +52,10 @@ function renderNode(node: Node, key: number): ReactNode {
         return null
     }
 
+    if (blockTags.has(tag) && !element.textContent?.trim()) {
+        return null
+    }
+
     const children = Array.from(element.childNodes).map(renderNode)
 
     if (!(tag in allowedTags)) {
@@ -67,6 +74,15 @@ function renderNode(node: Node, key: number): ReactNode {
 
     const Tag = tag as 'p'
     return <Tag key={key} className={allowedTags[tag] || undefined}>{children}</Tag>
+}
+
+// True bila konten punya teks yang bisa dibaca; `<p></p>` atau spasi saja dianggap kosong.
+export function hasNewsText(content: string | null | undefined) {
+    if (!content?.trim()) {
+        return false
+    }
+
+    return Boolean(new DOMParser().parseFromString(content, 'text/html').body.textContent?.trim())
 }
 
 // Isi berita dari GET /news/{id}. HTML diubah jadi elemen React lewat daftar tag yang diizinkan (tanpa innerHTML);

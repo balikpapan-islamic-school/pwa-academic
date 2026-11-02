@@ -2,6 +2,7 @@ import { ReactNode, useState } from 'react'
 import { ArrowLeft, Check, LoaderCircle, LucideIcon, TriangleAlert } from 'lucide-react'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { cn } from '@/lib/utils'
+import { PullToRefresh } from './pull-to-refresh'
 
 type FocusPageProps = {
     title: ReactNode
@@ -27,34 +28,36 @@ export function FocusPage({ title, subtitle, onBack, isDirty = false, headerExtr
     }
 
     return (
-        <main className="mx-auto flex min-h-screen max-w-md flex-col bg-background pb-10 text-ink">
-            <div className="relative overflow-hidden rounded-b-[36px] bg-primary px-6 pb-16 pt-[52px] text-white">
-                <div aria-hidden="true" className="absolute -right-10 -top-[30px] size-[170px] rounded-full bg-brand-mid" />
-                <div aria-hidden="true" className="absolute -bottom-[50px] right-[70px] size-[110px] rounded-full bg-brand-dark" />
+        <PullToRefresh>
+            <main className="mx-auto flex min-h-screen max-w-md flex-col bg-background pb-10 text-ink">
+                <div className="relative overflow-hidden rounded-b-[36px] bg-primary px-6 pb-16 pt-[52px] text-white">
+                    <div aria-hidden="true" className="absolute -right-10 -top-[30px] size-[170px] rounded-full bg-brand-mid" />
+                    <div aria-hidden="true" className="absolute -bottom-[50px] right-[70px] size-[110px] rounded-full bg-brand-dark" />
+                    {onBack ? (
+                        <button type="button" onClick={handleBack} aria-label="Kembali" className="relative flex size-11 items-center justify-center rounded-full bg-white/[0.18]">
+                            <ArrowLeft className="size-[22px]" strokeWidth={2.2} />
+                        </button>
+                    ) : null}
+                    <h1 className={cn('relative font-display text-[28px] font-bold leading-[1.1]', onBack ? 'mt-[22px]' : 'mt-[66px]')}>{title}</h1>
+                    {subtitle ? <p className="relative mt-2 text-[15px] text-brand-soft">{subtitle}</p> : null}
+                    {headerExtra}
+                </div>
+                {children}
                 {onBack ? (
-                    <button type="button" onClick={handleBack} aria-label="Kembali" className="relative flex size-11 items-center justify-center rounded-full bg-white/[0.18]">
-                        <ArrowLeft className="size-[22px]" strokeWidth={2.2} />
-                    </button>
+                    <ConfirmDialog
+                        open={isLeaveDialogOpen}
+                        onOpenChange={setIsLeaveDialogOpen}
+                        icon={TriangleAlert}
+                        tone="danger"
+                        title="Tinggalkan halaman?"
+                        description="Isian yang belum disimpan akan hilang."
+                        cancelLabel="Lanjut Isi"
+                        confirmLabel="Tinggalkan"
+                        onConfirm={onBack}
+                    />
                 ) : null}
-                <h1 className={cn('relative font-display text-[28px] font-bold leading-[1.1]', onBack ? 'mt-[22px]' : 'mt-[66px]')}>{title}</h1>
-                {subtitle ? <p className="relative mt-2 text-[15px] text-brand-soft">{subtitle}</p> : null}
-                {headerExtra}
-            </div>
-            {children}
-            {onBack ? (
-                <ConfirmDialog
-                    open={isLeaveDialogOpen}
-                    onOpenChange={setIsLeaveDialogOpen}
-                    icon={TriangleAlert}
-                    tone="danger"
-                    title="Tinggalkan halaman?"
-                    description="Isian yang belum disimpan akan hilang."
-                    cancelLabel="Lanjut Isi"
-                    confirmLabel="Tinggalkan"
-                    onConfirm={onBack}
-                />
-            ) : null}
-        </main>
+            </main>
+        </PullToRefresh>
     )
 }
 

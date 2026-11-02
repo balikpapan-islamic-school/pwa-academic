@@ -1,4 +1,5 @@
 import { DependencyList, useEffect, useState } from 'react'
+import { useRefreshSignal } from '@/contexts/RefreshContext'
 
 type ApiDataState<T> =
     | { status: 'loading' }
@@ -7,19 +8,25 @@ type ApiDataState<T> =
 
 // Memuat data dari service dan mengabaikan hasil permintaan lama saat `deps` berubah.
 // `load` bernilai null berarti belum ada yang perlu dimuat (mis. anak aktif belum tersedia).
+// Ikut dimuat ulang saat layar ditarik; selama itu data lama tetap tampil.
 export function useApiData<T>(load: (() => Promise<T>) | null, deps: DependencyList) {
     const [state, setState] = useState<ApiDataState<T>>({ status: 'loading' })
     const [reloadKey, setReloadKey] = useState(0)
+    const { refreshKey, track, consumeRefresh } = useRefreshSignal()
 
     useEffect(() => {
+        const isRefresh = consumeRefresh()
+
         if (!load) {
             return
         }
 
         let cancelled = false
-        setState({ status: 'loading' })
+        if (!isRefresh) {
+            setState({ status: 'loading' })
+        }
 
-        load()
+        track(load()
             .then((data) => {
                 if (!cancelled) {
                     setState({ status: 'ready', data })
@@ -29,14 +36,14 @@ export function useApiData<T>(load: (() => Promise<T>) | null, deps: DependencyL
                 if (!cancelled) {
                     setState({ status: 'error', error })
                 }
-            })
+            }))
 
         return () => {
             cancelled = true
         }
         // `load` dibuat ulang tiap render; pemicunya cukup `deps` dari pemanggil.
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [...deps, reloadKey])
+    }, [...deps, reloadKey, refreshKey])
 
     return {
         status: state.status,

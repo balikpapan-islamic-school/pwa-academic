@@ -6,7 +6,9 @@ import { ChildRequestCard } from '@/components/hubungkan/child-request-card'
 import { FieldShell } from '@/components/kit/field-shell'
 import { FocusPage, focusCardClassName, FormField, SubmitButton, SuccessCard } from '@/components/kit/focus-page'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { LoadingRegion } from '@/components/shared/skeletons'
 import { Skeleton } from '@/components/ui/skeleton'
+import { useRefreshSignal } from '@/contexts/RefreshContext'
 import { useGoBack } from '@/hooks/use-go-back'
 import { hasPendingChildRequest } from '@/lib/child-requests'
 import { ChildLinkRequest, ChildRelationship, childRelationshipLabels } from '@/lib/dummy-ui'
@@ -62,10 +64,12 @@ export default function HubungkanAnak() {
     const [isConfirmOpen, setIsConfirmOpen] = useState(false)
     const [isSending, setIsSending] = useState(false)
 
+    const { refreshKey, track } = useRefreshSignal()
+
     useEffect(() => {
         let cancelled = false
 
-        academicService.getChildRequests()
+        track(academicService.getChildRequests()
             .then((result) => {
                 if (!cancelled) {
                     setRequests(result)
@@ -80,12 +84,13 @@ export default function HubungkanAnak() {
                 if (!cancelled) {
                     setIsRequestsLoaded(true)
                 }
-            })
+            }))
 
         return () => {
             cancelled = true
         }
-    }, [])
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [refreshKey])
 
     const isLocked = hasPendingChildRequest(requests)
 
@@ -181,11 +186,18 @@ export default function HubungkanAnak() {
     if (!isRequestsLoaded) {
         return (
             <FocusPage title={<>Hubungkan<br />Peserta Didik</>} subtitle="Memuat status pengajuan…" onBack={goBack} headerExtra={<StepIndicator current={0} />}>
-                <div aria-busy="true" className={focusCardClassName}>
-                    <Skeleton className="h-[54px] rounded-2xl" />
-                    <Skeleton className="h-[54px] rounded-2xl" />
-                    <Skeleton className="h-[54px] rounded-2xl" />
-                </div>
+                <LoadingRegion label="Memuat status pengajuan" className={focusCardClassName}>
+                    {['w-20', 'w-32', 'w-28'].map((width) => (
+                        <div key={width} className="flex flex-col gap-2">
+                            <Skeleton className={cn('my-[3px] h-3.5', width)} />
+                            <div className="flex h-[54px] items-center gap-2.5 rounded-2xl border-2 border-border bg-card pl-3.5">
+                                <Skeleton className="size-5 rounded-md" />
+                                <Skeleton className="h-3.5 w-36" />
+                            </div>
+                        </div>
+                    ))}
+                    <Skeleton className="mt-1 h-14 rounded-full" />
+                </LoadingRegion>
             </FocusPage>
         )
     }
