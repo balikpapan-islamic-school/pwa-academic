@@ -7,6 +7,7 @@ import { InstallAppSettingsRow } from '@/components/pwa/install-app'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { ChildAvatar } from '@/components/dashboard/child-avatar'
 import { Skeleton } from '@/components/ui/skeleton'
+import { appConfig, appVersion } from '@/config/app'
 import { useAuth } from '@/contexts/AuthContext'
 import { useStudent } from '@/contexts/StudentContext'
 import { useApiData } from '@/hooks/use-api-data'
@@ -65,6 +66,34 @@ function buildPersonalInfo(profile: StudentProfile) {
     ]
 }
 
+
+// Versi + commit build untuk laporan bug; diketuk untuk menyalin ke clipboard.
+function AppVersionInfo() {
+    const builtAt = new Date(appVersion.builtAt)
+    const versionLabel = `Versi ${appVersion.version}${appVersion.commit ? ` (${appVersion.commit})` : ''}`
+    const buildLabel = `Dibangun ${formatDate(builtAt)} ${builtAt.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}`
+
+    async function copyVersion() {
+        const text = `${appConfig.name} ${versionLabel} · build ${appVersion.builtAt} · ${navigator.userAgent}`
+        try {
+            await navigator.clipboard.writeText(text)
+            toast.success('Info versi disalin', { description: 'Tempelkan saat melaporkan kendala ke sekolah.' })
+        } catch {
+            toast.info(versionLabel, { description: buildLabel })
+        }
+    }
+
+    return (
+        <button
+            type="button"
+            onClick={copyVersion}
+            aria-label={`${versionLabel}. ${buildLabel}. Ketuk untuk menyalin.`}
+            className="mx-auto mt-4 flex min-h-11 flex-col items-center justify-center rounded-2xl px-4 py-1.5 text-center">
+            <span className="text-xs font-extrabold text-subtle">{appConfig.name} · {versionLabel}</span>
+            <span className="text-[11px] text-[#849087]">{buildLabel}</span>
+        </button>
+    )
+}
 
 export default function Profil() {
     const { user, logout } = useAuth()
@@ -246,6 +275,8 @@ export default function Profil() {
                 <LogOut className="size-5" />
                 Keluar
             </button>
+
+            <AppVersionInfo />
 
             <ConfirmDialog
                 open={isLogoutOpen}

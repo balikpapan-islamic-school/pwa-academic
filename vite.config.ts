@@ -1,3 +1,5 @@
+import { execSync } from "child_process"
+import { readFileSync } from "fs"
 import path from "path"
 import tailwindcss from "@tailwindcss/vite"
 import react from "@vitejs/plugin-react"
@@ -7,12 +9,30 @@ import { VitePWA } from "vite-plugin-pwa"
 // Popup login Google mengirim id_token lewat window.postMessage; COOP ini mengizinkannya (sama dengan docker/nginx.conf).
 const googleSignInHeaders = { "Cross-Origin-Opener-Policy": "same-origin-allow-popups" }
 
+// Commit build: SOURCE_COMMIT dari build arg Coolify/Docker (.git tidak ikut ke image), selain itu dari git lokal.
+function buildCommit() {
+  if (process.env.SOURCE_COMMIT) {
+    return process.env.SOURCE_COMMIT.slice(0, 7)
+  }
+  try {
+    return execSync("git rev-parse --short HEAD", { stdio: ["ignore", "pipe", "ignore"] }).toString().trim()
+  } catch {
+    return ""
+  }
+}
+
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd())
   const appName = env.VITE_APP_NAME || "BIS - Student"
 
   return {
     base: env.VITE_BASE_URL ?? "/",
+    // Ditampilkan di halaman Profil agar laporan bug bisa menyebut versi persisnya.
+    define: {
+      __APP_VERSION__: JSON.stringify(JSON.parse(readFileSync(path.resolve(__dirname, "package.json"), "utf-8")).version),
+      __APP_COMMIT__: JSON.stringify(buildCommit()),
+      __APP_BUILD_TIME__: JSON.stringify(new Date().toISOString()),
+    },
     plugins: [
       react(),
       tailwindcss(),

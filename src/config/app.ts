@@ -35,4 +35,11 @@ export const spmb = {
     registrationUrl: import.meta.env.VITE_SPMB_URL ?? '',
 }
 
+// Versi aplikasi yang sedang berjalan (lihat `define` di vite.config.ts); commit kosong bila build tanpa git/SOURCE_COMMIT.
+export const appVersion = {
+    version: __APP_VERSION__,
+    commit: __APP_COMMIT__,
+    builtAt: __APP_BUILD_TIME__,
+}
+
 export const baseUrl = import.meta.env.VITE_BASE_URL ?? ""

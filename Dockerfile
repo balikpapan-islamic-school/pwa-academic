@@ -16,6 +16,8 @@ ARG VITE_API_BASE_URL
 ARG VITE_GOOGLE_CLIENT_ID=""
 ARG VITE_SPMB_SCHOOL_YEAR=""
 ARG VITE_SPMB_URL=""
+# Commit yang dibangun, untuk info versi di halaman Profil. Coolify mengisinya bila "Include Source Commit in Build" aktif.
+ARG SOURCE_COMMIT=""
 
 RUN test -n "$VITE_API_BASE_URL" || (echo "VITE_API_BASE_URL wajib diisi" && exit 1)
 
@@ -24,7 +26,8 @@ ENV VITE_APP_NAME=$VITE_APP_NAME \
     VITE_API_BASE_URL=$VITE_API_BASE_URL \
     VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID \
     VITE_SPMB_SCHOOL_YEAR=$VITE_SPMB_SCHOOL_YEAR \
-    VITE_SPMB_URL=$VITE_SPMB_URL
+    VITE_SPMB_URL=$VITE_SPMB_URL \
+    SOURCE_COMMIT=$SOURCE_COMMIT
 
 RUN npm run build
 
